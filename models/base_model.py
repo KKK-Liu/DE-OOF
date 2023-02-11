@@ -1,0 +1,126 @@
+import os
+import torch
+from collections import OrderedDict
+from abc import ABC, abstractmethod
+from utils.utils import AverageMeter
+
+class BaseModel(ABC):
+    def __init__(self, args) -> None:
+        super().__init__()
+        
+        self.args = args
+        self.isTrain = args.isTrain
+        self.save_dir = args.ckpt_save_path  # save all the checkpoints to save_dir
+
+        self.loss_names = ['all']
+        self.model_names = []
+        self.nets = []
+        self.visual_names = []
+        self.optimizers = []
+        self.schedulers = []
+        
+        self.meters = {}
+        self.metric = 0  # used for learning rate policy 'plateau'
+        self.best_valid_loss = 0.0
+        
+    @abstractmethod
+    def set_input(self):
+        pass
+    
+    @abstractmethod
+    def save_network(self):
+        pass
+    
+    @abstractmethod
+    def load_network(self):
+        pass
+    
+    
+    @abstractmethod
+    def update_learning_rate(self):
+        pass
+    
+    @abstractmethod
+    def to_cuda(self):
+        pass
+    
+    def meter_init(self):
+        for loss_name in self.loss_names:
+            self.meters['train_loss_{}'.format(loss_name)] = AverageMeter()
+            self.meters['valid_loss_{}'.format(loss_name)] = AverageMeter()
+            
+    def mode(self, type):
+        if type == 'train':
+            for net in self.nets:
+                net.train()
+        elif type == 'valid':
+            for net in self.nets:
+                net.eval()
+            
+    def get_log_message(self):
+        self.log_msg = 'Train loss:{:.4f}, Valid loss:{:.4f}, Best valid loss:{:.4f}'.format(
+            self.meters['train_loss_all'].avg,
+            self.meters['valid_loss_all'].avg,
+            self.best_valid_loss
+            )
+        return self.log_msg
+    
+    def epoch_start(self):
+        self.reset_meters()
+        
+    def save_network(self, epoch):
+        state = {
+            'epoch': epoch,
+            'state_dict': self.net.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
+            'scheduler': self.scheduler.state_dict(),
+            'best_val_loss': self.best_valid_loss,
+        }
+        save_file_name = 'valBest_{:.5f}_ckpt.pth.tar'.format(self.best_valid_loss)
+        torch.save(state,
+            os.path.join(self.save_dir, save_file_name))
+        
+    def reset_meters(self):
+        for _, meter in self.meters.items():
+            meter.reset()
+            
+            
+    def update_meters(self, isTrain, n):
+        type = 'train' if isTrain else 'valid'
+        for loss_name in self.loss_names:
+            loss_name = '{}_loss_{}'.format(type, loss_name)
+            self.meters[loss_name].update(getattr(self,loss_name).item(), n=n)
+       
+    # def get_loss_message(self, isTrain):
+    #     msg = 'Train--'
+    #     for loss_name in self.loss_names:
+    #         loss_name = 'train_loss_{}'.format(loss_name)
+    #         msg += ' {}:{:.3f} '.format(loss_name, getattr(self, ))
+    
+    def get_scalar_dict(self):
+        scalar_dict = {}
+        
+        for loss_name in self.loss_names:
+            scalar_dict['train_loss_{}'.format(loss_name)] = self.meters['train_loss_{}'.format(loss_name)].avg
+            scalar_dict['valid_loss_{}'.format(loss_name)] = self.meters['valid_loss_{}'.format(loss_name)].avg
+            
+        return scalar_dict
+    
+    def update_learning_rate(self):
+        for scheduler in self.schedulers:
+            scheduler.step()
+            
+    def epoch_finish(self, epoch):
+        save_flag = False
+        if epoch == 1 or\
+            self.best_valid_loss > self.meters['valid_loss_all'].avg:
+            # print("before: bcl:{}, meter:{}".format(self.best_valid_loss , self.meters['valid_loss_all'].avg))
+            self.best_valid_loss = self.meters['valid_loss_all'].avg
+            save_flag = True
+            # print("after: bcl:{}, meter:{}".format(self.best_valid_loss , self.meters['valid_loss_all'].avg))
+            
+            
+        if save_flag:
+            self.save_network(epoch)
+            
+        self.update_learning_rate()

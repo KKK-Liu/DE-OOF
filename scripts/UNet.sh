@@ -1,0 +1,1 @@
+python pro.py --name UNet_baseline --model U_Net --dataset_name paired --lr 0.1 --gamma 0.1 --data_root /root/autodl-tmp/data/&& shutdown

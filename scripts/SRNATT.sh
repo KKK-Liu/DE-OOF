@@ -1,0 +1,1 @@
+python pro.py --name SRNATT_baseline --model SRNATT_Net --dataset_name paired_3 --lr 1e-3 --gamma 0.1 && shutdown

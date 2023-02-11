@@ -1,0 +1,20 @@
+128it [05:40,  2.66s/it]
+
+mse                             0.03
+ssim                            2.31
+multi_scale_ssim                3.05
+multi_scale_gmsd                0.96
+vif_p                           2.84
+StyleLoss                       54.22
+ContentLoss                     54.35
+LPIPS                           58.34
+DISTS                           59.16
+psnr                            0.15
+fsim                            12.73
+vsi                             4.80
+mdsi                            1.21
+haarpsi                         1.10
+srsim                           3.10
+PieAPP                          73.27
+dss                             1.77
+information_weighted_ssim       6.57

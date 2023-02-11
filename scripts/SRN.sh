@@ -1,0 +1,1 @@
+python pro.py --name SRN_baseline --model SRN_Net --dataset_name paired_3 --lr 1e-4 --gamma 0.1 && shutdown
