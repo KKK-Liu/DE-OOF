@@ -10,48 +10,81 @@ from models import get_model
 from dataloader.dataloader_paired import get_eval_dataloader
 import time
 
+
 from piq import ssim, multi_scale_ssim,multi_scale_gmsd, vif_p, StyleLoss, ContentLoss, LPIPS, DISTS, psnr, fsim, vsi, mdsi, haarpsi, srsim, PieAPP, dss, information_weighted_ssim
 
 import matplotlib.pyplot as plt
 
 metrics = {
     'mse':torch.nn.functional.mse_loss,
+    'psnr':psnr,
     'ssim':ssim,
     'multi_scale_ssim':multi_scale_ssim,
     'multi_scale_gmsd':multi_scale_gmsd,
     'vif_p':vif_p,
+    'mdsi':mdsi,
+    'haarpsi':haarpsi,
+    'srsim':srsim,
+    'dss':dss,
+    'information_weighted_ssim':information_weighted_ssim,
+    'fsim':fsim,
+    'vsi':vsi,
+    
+    # metrics below are time-consuming
     # 'StyleLoss':StyleLoss(),
     # 'ContentLoss':ContentLoss(),
     # 'LPIPS':LPIPS(),
     # 'DISTS':DISTS(),
-    'psnr':psnr,
-    'fsim':fsim,
-    'vsi':vsi,
-    'mdsi':mdsi,
-    'haarpsi':haarpsi,
-    'srsim':srsim,
     # 'PieAPP':PieAPP(),
-    'dss':dss,
-    'information_weighted_ssim':information_weighted_ssim,
+    
 }
-'''
-    eval.py should has following functions:
-        1. restore images
-        2. evaluate image with given blurred and sharp images
-        3. visulize the comparison
-'''
 
+def eval_cuda(root_blurred, root_sharp):
+    '''
+        evaluate the sharp(blurred) image with metrics 
+    '''
+    losses = []
+    
+    t = ToTensor()
+    
+    save_root = os.path.join('./results', time.strftime('%m-%d-%H-%M', time.localtime()))
+    
+    os.makedirs(save_root, exist_ok=True)
 
+    with open(os.path.join(save_root, 'metric values.csv'), 'w') as f:
+        line = ','.join(['image name']+list(metrics.keys()))+'\n'
+        f.write(line)
+        for image_name in tqdm(os.listdir(root_sharp)):
+            img_sharp = t(Image.open(os.path.join(root_sharp, image_name))).unsqueeze(0).cuda()
+            img_blurred = t(Image.open(os.path.join(root_blurred, image_name))).unsqueeze(0).cuda()
+            
+            this_losses = []
+            for _, metric_function in metrics.items():
+                this_losses.append(metric_function(img_blurred, img_sharp).data)
+            losses.append(this_losses)
+            
+            line = ','.join([image_name]+list(map(str, this_losses)))+'\n'
+            f.write(line)
 
-'''
-    eval.py has the following functions:
-        1. use ckpt and blurred image to generate sharp images (done)
-        2. use ckpt and blurred image to generate sharp images and evaluate at the same time (done)
-        3. evaluate images (done)
-        4. use sharp image, blurred image and restored image to form comparison data. (done)
-        
-    metrics styleloss, contentloss, lpips, dists, and pieapp are time-comsumming.
-'''
+    losses = np.array(losses)
+    np.save(os.path.join(save_root, 'losses.npy'),losses)
+    
+    losses_item = np.mean(losses, axis=0)
+    
+    with open(os.path.join(save_root, 'result.txt'), 'w') as f:
+        f.write("blur root:{}\n".format(root_blurred))
+        f.write("sharp root:{}\n".format(root_sharp))
+        for metric, value in zip(metrics.keys(), losses_item):
+            f.write("{:>20}:{:<20}\n".format(metric, value))
+    
+    print('Results are saved in {}'.format(os.path.join(save_root, 'result.txt')))
+    
+    with open(os.path.join(save_root, 'result.txt'), 'r') as f:
+        for line in f.readlines():
+            print(line)
+            
+    return save_root
+
 
 def func1(args):
     '''
@@ -98,7 +131,6 @@ def func1(args):
 def func2(root_blurred, root_sharp):
     '''
         evaluate the sharp(blurred) image with metrics 
-        
     '''
     losses = []
     
@@ -206,6 +238,15 @@ def time_testing():
     for time_u, metric in zip(time_used, metrics.keys()):
         print('{}:{:.3f}'.format(metric, time_u))
     
+def direction_test():
+    img_x = torch.rand(4,3,224,224)
+    img_y = torch.rand(4,3,224,224)
+    
+    for name, function in metrics.items():
+        
+        print(name)
+        print('x and x:{}'.format(function(img_x, img_x).data))
+        print('x and y:{}'.format(function(img_x, img_y).data))
     
 
 
@@ -252,8 +293,8 @@ def main():
     '''
         main:use the data to generate the 
     '''
-    
-    func2('./data/CRC-224/CRC-02-01-22-27/val-blurred', './data/CRC-224/CRC-02-01-22-27/val-clear')
+    direction_test()
+    # func2('./data/CRC-224/CRC-02-01-22-27/val-blurred', './data/CRC-224/CRC-02-01-22-27/val-clear')
     # args = get_arguements()
     
     # test_baseline(args.data_root, 'val', './results/name-2023-01-25-21-48-26')

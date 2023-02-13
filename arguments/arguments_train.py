@@ -30,12 +30,16 @@ parser.add_argument('--logfilemode', type=str,default='w', help='mode of the log
 
 
 '''optimizer and scheduler related'''
+parser.add_argument('--optimizer', type=str, default='adam')
 parser.add_argument('--epoch', type=int, default=200)
 parser.add_argument('--lr', type=float, default=0.1)
 parser.add_argument('--momentum', type=float, default=0.9)
 parser.add_argument('--weight_decay', type=float, default=5e-4)
+
+parser.add_argument('--scheduler', type=str, default='cosineannealinglr')
 parser.add_argument('--gamma', type=float, default=0.1)
 parser.add_argument('--milestones', type=int, nargs='+',default=[40, 80, 120, 160])
+parser.add_argument('--T_max', type=int, default=40)
 
 
 '''other options'''
@@ -44,12 +48,14 @@ parser.add_argument('--seed', type=int, default=529)
 parser.add_argument('--gpu_id', type=int, default=0)
 
 parser.add_argument('--use_tensorboard', type=bool, default=True)
+parser.add_argument('--use_wandb', type=bool, default=True)
 
 
-args = parser.parse_args()
+
 
 
 def get_arguements():
+    args = parser.parse_args()
     # print(args._get_kwargs())
     
     args.name = args.name + time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())

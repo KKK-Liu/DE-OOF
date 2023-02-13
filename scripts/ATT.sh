@@ -1,0 +1,1 @@
+python pro.py --name ATT_Deblur_Net_baseline --model ATT_Deblur_Net --dataset_name paired_3 --lr 1e-2 --gamma 0.1 && shutdown

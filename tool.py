@@ -706,6 +706,124 @@ def blur_one_image_RGB_real(ori_img=None):
     return result_image, kernel_mapping_smoothed
 
 
+
+def make_zip(source_dir:str, output_filename):
+    import zipfile
+    
+    ignored_dirlist = [
+        'data',
+        'logs',
+        'results',
+        'ref-codes',
+        'wandb',
+        '.git',
+        'TmpImages',
+        '__pycache__',
+    ]
+    
+    # ignored_dirlist = [
+    #     'p3'
+    # ]
+    source_dir = source_dir.replace('/','\\')
+    
+    zipf = zipfile.ZipFile(output_filename, 'w')
+    pre_len = len(os.path.dirname(source_dir))
+    for parent, dirnames, filenames in os.walk(source_dir):
+        # parent:str
+        # if os.path.split(parent)[1] in ignored_dirlist:
+        #     continue
+        f = False
+        for ignore_dir in ignored_dirlist:
+            if '\\{}\\'.format(ignore_dir) in parent:
+                f = True
+                break
+            if parent.endswith('\\{}'.format(ignore_dir)):
+                f = True
+                break
+        if f:
+            continue
+        for filename in filenames:
+            # if filename == output_filename:
+            #     continue
+            
+            pathfile = os.path.join(parent, filename)
+            arcname = pathfile[pre_len:].strip(os.path.sep)  # 相对路径
+            
+            zipf.write(pathfile, arcname)
+            print(arcname)
+        # print()
+    zipf.close()
+
+def oswalk_test():
+    import os
+    
+    for parent, dirnames, filenames in os.walk("D:\\desktop\\f"):
+        print('-'*10)
+        print('parent',parent)
+        print('dirnames', dirnames)
+        print('filenames',filenames)
+        
+    
+def mse2psnr():
+    from math import log10
+    mse = 3.74 * 1e-3
+    
+    psnr = -10 * log10(mse)
+    
+    print('mse:{}\npsnr:{}'.format(mse, psnr))
+
+def srnatts_test():
+    from models.SRNATTS_model import SRNATTS_Net
+    
+    model = SRNATTS_Net()
+
+def wandb_test():
+    import argparse
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--name', type=str, default='this is name')
+    parser.add_argument('--epoch', type=int, default = 200)
+    
+    args= parser.parse_args()
+    
+    import wandb 
+    
+    wandb.init(
+        name = args.name,
+        entity = 'kkk06',
+        project = 'Deblur',
+        config = vars(args)
+    )
+    
+    for i in range(100):
+        this_dict = {
+            'i':i,
+            'i^2':i*i,
+        }
+        wandb.log(this_dict)
+        
+        
+def nan_tensor_test():
+    import torch
+    t = torch.ones((10,10))
+    t = t/0.0
+    print(torch.isnan(t).any(), torch.isinf(t).any())
+    
+def save_result_test():
+    import torchvision.transforms.functional as f
+    import torch
+    
+    img = torch.rand((3,224,224))
+    img = f.to_pil_image(img)
+    
+    img.save('./TmpImages/test.png')
+    
+# make_zip("D:/desktop/de-OOF", 'D:/desktop/code.zip')
+# make_zip('D:/desktop\\de-OOF', 'D:/desktop/code.zip')
+save_result_test()
+# mse2psnr()
+# wandb_test()
+# oswalk_test()
 # psf_map_generate()
 
 # print(hxzy(0.1,0,0))
@@ -734,8 +852,10 @@ def blur_one_image_RGB_real(ori_img=None):
 
 # psf_show()
 
-img, k = blur_one_image_RGB_real(cv2.imread('./TmpImages/Sharp.png'))
+# img, k = blur_one_image_RGB_real(cv2.imread('./TmpImages/Sharp.png'))
 
-cv2.imwrite('./TmpImages/blurred.png', img)
-cv2.imwrite('./TmpImages/k.png', k/np.max(k)*255)
-cv2.imwrite('./TmpImages/k-R.png', 255 - k/np.max(k)*255)
+# cv2.imwrite('./TmpImages/blurred.png', img)
+# cv2.imwrite('./TmpImages/k.png', k/np.max(k)*255)
+# cv2.imwrite('./TmpImages/k-R.png', 255 - k/np.max(k)*255)
+
+# nan_tensor_test()

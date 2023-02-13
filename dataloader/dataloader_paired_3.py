@@ -35,17 +35,17 @@ class OOF_dataset(Dataset):
         if self.type == 'eval':
             return  transforms.Resize((224,224))(img_blurred),\
                     transforms.Resize((112,112))(img_blurred),\
-                    transforms.Resize((58 ,58 ))(img_blurred),\
+                    transforms.Resize((56 ,56 ))(img_blurred),\
                     transforms.Resize((224,224))(img_clear),\
                     transforms.Resize((112,112))(img_clear),\
-                    transforms.Resize((58 ,58 ))(img_clear), self.image_names[index]
+                    transforms.Resize((56 ,56 ))(img_clear), self.image_names[index]
         else:
             return  transforms.Resize((224,224))(img_blurred),\
                     transforms.Resize((112,112))(img_blurred),\
-                    transforms.Resize((58 ,58 ))(img_blurred),\
+                    transforms.Resize((56 ,56 ))(img_blurred),\
                     transforms.Resize((224,224))(img_clear),\
                     transforms.Resize((112,112))(img_clear),\
-                    transforms.Resize((58 ,58 ))(img_clear)
+                    transforms.Resize((56 ,56 ))(img_clear)
         
     def __len__(self):
         return self.len
@@ -56,12 +56,14 @@ def get_dataloader(args):
         transforms.ToTensor(),
         transforms.RandomVerticalFlip(),
         transforms.RandomHorizontalFlip(),
-        transforms.ColorJitter(0.5,0.5,0.5,0.1),
+        transforms.ColorJitter(0.2,0.2,0.2,0.1),
+        transforms.Normalize([0.5,0.5,0.5],[1,1,1]),
         # transforms.RandomRotation(180),
     ])
     
     val_transforms = transforms.Compose([
         transforms.ToTensor(),
+        transforms.Normalize([0.5,0.5,0.5],[1,1,1]),
     ])
     
     train_dataset = OOF_dataset(

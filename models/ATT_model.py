@@ -318,7 +318,7 @@ class DBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride, output_padding):
         super(type(self), self).__init__()
         resblock_list = []
-        for i in range(1):
+        for i in range(3):
             resblock_list.append(resblock(in_channels))
         self.resblock_stack = nn.Sequential(*resblock_list)
         self.deconv = deconv5x5_relu(
@@ -334,7 +334,7 @@ class OutBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(type(self), self).__init__()
         resblock_list = []
-        for i in range(1):
+        for i in range(3):
             resblock_list.append(resblock(in_channels))
         self.resblock_stack = nn.Sequential(*resblock_list)
         self.conv = conv(in_channels, out_channels, 5, 1, 2, activation_fn=None)
@@ -345,20 +345,15 @@ class OutBlock(nn.Module):
         return x
 
 
-class SRNDeblurNet(nn.Module):
-    """SRN-DeblurNet 
-    examples:
-        net = SRNDeblurNet()
-        y = net( x1 , x2 , x3）#x3 is the coarsest image while x1 is the finest image
-    """
+class ATTNet(nn.Module):
 
     def __init__(self, upsample_fn=partial(torch.nn.functional.interpolate, mode='bilinear'), xavier_init_all=True):
         super(type(self), self).__init__()
         self.upsample_fn = upsample_fn
-        self.inblock = EBlock(3 + 3, 32, 1)
+        self.inblock = EBlock(3, 32, 1)
         self.eblock1 = EBlock(32, 64, 2)
         self.eblock2 = EBlock(64, 128, 2)
-        self.convlstm = CLSTM_cell(128, 128, 5)
+        # self.convlstm = CLSTM_cell(128, 128, 5)
         
         self.dblock1_content = DBlock(128, 64, 2, 1)
         self.dblock2_content = DBlock(64, 32, 2, 1)
@@ -374,66 +369,35 @@ class SRNDeblurNet(nn.Module):
                 if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
                     torch.nn.init.xavier_normal_(m.weight)
                     # torch.nn.init.kaiming_normal_(m.weight)
-                    print(name)
+                    # print(name)
 
-    def forward_step(self, x, hidden_state):
+    def forward(self, x):
         e32 = self.inblock(x)
         e64 = self.eblock1(e32)
         e128 = self.eblock2(e64)
-        h, c = self.convlstm(e128, hidden_state)
         
-        d64_content = self.dblock1_content(h)
+        d64_content = self.dblock1_content(e128)
         d32_content = self.dblock2_content(d64_content + e64)
         d3_content = self.outblock_content(d32_content + e32)
         
-        d64_attention = self.dblock1_attention(h)
+        d64_attention = self.dblock1_attention(e128)
         d32_attention = self.dblock2_attention(d64_attention + e64)
         d3_attention = self.outblock_attention(d32_attention + e32)
         
         d3_content = torch.tanh(d3_content)
         d3_attention = torch.nn.functional.softmax(d3_attention, dim=1)
+        d3_attention = d3_attention.repeat(1, 3, 1, 1)
         
-        d3_attentions = list(torch.split(d3_attention, 1, 1))
-        
-        for i in range(3):
-            d3_attentions[i] = d3_attentions[i].repeat(1, 3, 1, 1)
-        
-        xs = list(torch.split(x, 3, 1))
-        
-        d3 = xs[0] * d3_attentions[0] + xs[1] * d3_attentions[1] + d3_content * d3_attentions[2]
+        d3 = d3_content * d3_content
 
-        return d3, h, c
+        return d3
 
-    def forward(self, b1, b2, b3):
-        # if self.input_padding is None or self.input_padding.shape != b3.shape:
-        #     self.input_padding = torch.zeros_like(b3)
-        h, c = self.convlstm.init_hidden(b3.shape[0], (b3.shape[-2]//4, b3.shape[-1]//4))
-
-        i3, h, c = self.forward_step(
-            torch.cat([b3, b3], 1), (h, c))
-
-        c = self.upsample_fn(c, scale_factor=2)
-        h = self.upsample_fn(h, scale_factor=2)
-        i2, h, c = self.forward_step(
-            torch.cat([b2, self.upsample_fn(i3, scale_factor=2)], 1), (h, c))
-
-        c = self.upsample_fn(c, scale_factor=2)
-        h = self.upsample_fn(h, scale_factor=2)
-        i1, h, c = self.forward_step(
-            torch.cat([b1, self.upsample_fn(i2, scale_factor=2)], 1), (h, c))
-
-        # y2 = self.upsample_fn( y1 , (128,128) )
-        # y3 = self.upsample_fn( y2 , (64,64) )
-
-        # return y1 , y2 , y3
-        return i1, i2, i3
-
-class SRNATTS_Net(nn.Module, BaseModel):
+class ATT_Net(nn.Module, BaseModel):
     def __init__(self, args) -> None:
-        super(SRNATTS_Net, self).__init__()
+        super(ATT_Net, self).__init__()
         BaseModel.__init__(self, args)
         
-        self.net = SRNDeblurNet()
+        self.net = ATTNet()
         self.nets.append(self.net)
         
         # self.optimizer = torch.optim.Adam( 
@@ -454,11 +418,11 @@ class SRNATTS_Net(nn.Module, BaseModel):
         self.schedulers.append(self.scheduler)
         self.loss_function_mse = nn.MSELoss(reduction='mean')
         
-        self.loss_names += ['mse_1','mse_2','mse_3']
+        self.loss_names += ['mse_1']
         
         self.meter_init()
         
-        print('SRNATTS_Net is created')
+        print('ATT_Net is created')
         
     def to_cuda(self):
         self.net = self.net.cuda()
@@ -468,44 +432,35 @@ class SRNATTS_Net(nn.Module, BaseModel):
     def set_input(self, data):
         # self.blur_images_3, self.blur_images_2, self.blur_images_1,\
         # self.sharp_images_3, self.sharp_images_2, self.sharp_images_1 = data
-        self.blur_images_1, self.blur_images_2, self.blur_images_3,\
-            self.sharp_images_1, self.sharp_images_2, self.sharp_images_3 = data
+        self.blur_images_1, self.sharp_images_1, = data
+        
         self.blur_images_1  = self.blur_images_1.cuda()
-        self.blur_images_2  = self.blur_images_2.cuda()
-        self.blur_images_3  = self.blur_images_3.cuda()
         self.sharp_images_1 = self.sharp_images_1.cuda()
-        self.sharp_images_2 = self.sharp_images_2.cuda()
-        self.sharp_images_3 = self.sharp_images_3.cuda()
         
     def forward(self):
-        self.restored_images_1, self.restored_images_2, self.restored_images_3 =\
-            self.net(self.blur_images_1, self.blur_images_2, self.blur_images_3)
+        self.restored_images_1 = self.net(self.blur_images_1)
         
     def train_step(self):
         self.forward()
         self.train_loss_mse_1 = self.loss_function_mse(self.restored_images_1, self.sharp_images_1)
-        self.train_loss_mse_2 = self.loss_function_mse(self.restored_images_2, self.sharp_images_2)
-        self.train_loss_mse_3 = self.loss_function_mse(self.restored_images_3, self.sharp_images_3)
+
         
-        self.train_loss_all = self.train_loss_mse_1 + self.train_loss_mse_2 + self.train_loss_mse_3
+        self.train_loss_all = self.train_loss_mse_1
         
         self.optimizer.zero_grad()
         self.train_loss_all.backward()
-        torch.nn.utils.clip_grad_norm_(self.net.convlstm.parameters(),3)
         self.optimizer.step()
 
-        self.update_meters(True, self.blur_images_3.size(0))
+        self.update_meters(True, self.blur_images_1.size(0))
         
     def valid_step(self):
         with torch.no_grad():
             self.forward()
             self.valid_loss_mse_1 = self.loss_function_mse(self.restored_images_1, self.sharp_images_1)
-            self.valid_loss_mse_2 = self.loss_function_mse(self.restored_images_2, self.sharp_images_2)
-            self.valid_loss_mse_3 = self.loss_function_mse(self.restored_images_3, self.sharp_images_3)
             
-            self.valid_loss_all = self.valid_loss_mse_1 + self.valid_loss_mse_2 + self.valid_loss_mse_3
+            self.valid_loss_all = self.valid_loss_mse_1 
             
-            self.update_meters(False, self.blur_images_3.size(0))
+            self.update_meters(False, self.blur_images_1.size(0))
         
         
     def load_network(self):
@@ -517,14 +472,12 @@ class SRNATTS_Net(nn.Module, BaseModel):
         
         
 if __name__ == '__main__':
-    net = SRNDeblurNet()
+    net = ATTNet()
     
-    # x1 = torch.rand((4,3,256,256))
-    # x2 = torch.rand((4,3,128,128))
-    # x3 = torch.rand((4,3,64,64))
+    x1 = torch.rand((4,3,224,224))
+
     
-    # y1, y2, y3 = net(x1, x2, x3)
+    y1:torch.Tensor = net(x1)
     
-    # print(y1.shape)
-    # print(y2.shape)
-    # print(y3.shape)
+    print(y1)
+    

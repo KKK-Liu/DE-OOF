@@ -2,7 +2,6 @@ import os
 import torch
 from collections import OrderedDict
 from abc import ABC, abstractmethod
-from utils.utils import AverageMeter
 
 class BaseModel(ABC):
     def __init__(self, args) -> None:
@@ -103,7 +102,8 @@ class BaseModel(ABC):
         for loss_name in self.loss_names:
             scalar_dict['train_loss_{}'.format(loss_name)] = self.meters['train_loss_{}'.format(loss_name)].avg
             scalar_dict['valid_loss_{}'.format(loss_name)] = self.meters['valid_loss_{}'.format(loss_name)].avg
-            
+        
+        scalar_dict['lr'] = self.schedulers[0].get_last_lr()[0]
         return scalar_dict
     
     def update_learning_rate(self):
@@ -124,3 +124,20 @@ class BaseModel(ABC):
             self.save_network(epoch)
             
         self.update_learning_rate()
+        
+        
+        
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.count = 0
+        self.sum = 0.0
+        self.avg = 0.0
+
+    def update(self, val, n=1):
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count

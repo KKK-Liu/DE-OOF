@@ -2,23 +2,16 @@ import torch.nn as nn
 import torch.utils.data
 import torch
 import torch.optim as optim
-from torch.optim.lr_scheduler import MultiStepLR
+from torch.optim.lr_scheduler import MultiStepLR, ConstantLR, CosineAnnealingWarmRestarts, CosineAnnealingLR
 from .base_model import BaseModel
-
+from torch.cuda.amp import autocast as autocast
 
 from torch.nn.init import xavier_normal_ , kaiming_normal_
 from functools import partial
 
-
-
-def weights_init(m):
-    classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
-        m.weight.data.normal_(0.0, 0.02)
-    elif classname.find('BatchNorm') != -1:
-        m.weight.data.normal_(1.0, 0.02)
-        m.bias.data.fill_(0)
-
+import torchvision.transforms.functional as f
+import os
+            
 class CLSTM_cell(nn.Module):
     """Initialize a basic Conv LSTM cell.
     Args:
@@ -59,70 +52,6 @@ class CLSTM_cell(nn.Module):
     def init_hidden(self,batch_size,shape):
         return (torch.zeros(batch_size,self.num_features,shape[0],shape[1]).cuda() , torch.zeros(batch_size,self.num_features,shape[0],shape[1]).cuda())
         # return (torch.zeros(batch_size,self.num_features,shape[0],shape[1]) , torch.zeros(batch_size,self.num_features,shape[0],shape[1]))
-
-
-class CLSTM(nn.Module):
-    """Initialize a basic Conv LSTM cell.
-    Args:
-      filter_size: int that is the height and width of the filters
-      num_features: int thats the num of channels of the states, like hidden_size
-      
-    """
-    def __init__(self, input_chans,  num_features, filter_size, num_layers=1):
-        super(CLSTM, self).__init__()
-        
-        #self.shape = shape#H,W
-        self.input_chans=input_chans
-        self.filter_size=filter_size
-        self.num_features = num_features
-        self.num_layers=num_layers
-        cell_list=[]
-        cell_list.append(CLSTM_cell(self.input_chans, self.filter_size, self.num_features).cuda())#the first
-        #one has a different number of input channels
-        
-        for idcell in range(1,self.num_layers):
-            cell_list.append(CLSTM_cell(self.num_features, self.filter_size, self.num_features).cuda())
-        self.cell_list=nn.ModuleList(cell_list)      
-
-    
-    def forward(self, input, hidden_state):
-        """
-        args:
-            hidden_state:list of tuples, one for every layer, each tuple should be hidden_layer_i,c_layer_i
-            input is the tensor of shape seq_len,Batch,Chans,H,W
-
-        """
-
-        current_input = input.transpose(0, 1)#now is seq_len,B,C,H,W
-        #current_input=input
-        next_hidden=[]#hidden states(h and c)
-        seq_len=current_input.size(0)
-
-        
-        for idlayer in range(self.num_layers):#loop for every layer
-
-            hidden_c=hidden_state[idlayer]#hidden and c are images with several channels
-            all_output = []
-            output_inner = []            
-            for t in range(seq_len):#loop for every step
-                hidden_c=self.cell_list[idlayer](current_input[t,...],hidden_c)#cell_list is a list with different conv_lstms 1 for every layer
-
-                output_inner.append(hidden_c[0])
-
-            next_hidden.append(hidden_c)
-            current_input = torch.cat(output_inner, 0).view(current_input.size(0), *output_inner[0].size())#seq_len,B,chans,H,W
-
-
-        return next_hidden, current_input
-
-    def init_hidden(self,batch_size,shape):
-        init_states=[]#this is a list of tuples
-        for i in range(self.num_layers):
-            init_states.append(self.cell_list[i].init_hidden(batch_size,shape))
-        return init_states
-
-
-
 
 def get_weight_init_fn(activation_fn):
     """get weight_initialization function according to activation_fn
@@ -217,38 +146,6 @@ def deconv( in_channels , out_channels , kernel_size , stride = 1  , padding  = 
             layers.append( activation_fn() )
     return nn.Sequential( *layers )
 
-def linear( in_channels , out_channels , activation_fn = None , use_batchnorm = False ,pre_activation = False , bias = True ,weight_init_fn = None):
-    """pytorch torch.nn.Linear wrapper
-    Notes
-    ---------------------------------------------------------------------
-    Arguments:
-        activation_fn : use partial() to wrap activation_fn if any argument is needed
-        weight_init_fn : a init function, use partial() to wrap the init function if any argument is needed. default None, if None, auto choose init function according to activation_fn 
-
-    examples:
-        linear(3,32,activation_fn = partial( torch.nn.LeakyReLU , negative_slope = 0.1 ))
-    """
-    if not pre_activation and use_batchnorm:
-        assert not bias
-
-    layers = []
-    if pre_activation :
-        if use_batchnorm:
-            layers.append( nn.BatchNorm2d( in_channels ) )
-        if activation_fn is not None:
-            layers.append( activation_fn() )
-    linear = nn.Linear( in_channels , out_channels )
-    if weight_init_fn is None:
-        weight_init_fn = get_weight_init_fn( activation_fn )
-    weight_init_fn( linear.weight )
-
-    layers.append( linear )
-    if not pre_activation :
-        if use_batchnorm:
-            layers.append( nn.BatchNorm2d( out_channels ) )
-        if activation_fn is not None:
-            layers.append( activation_fn() )
-    return nn.Sequential( *layers )
 
 class BasicBlock(nn.Module):
     """pytorch torch.nn.Linear wrapper
@@ -283,7 +180,7 @@ class BasicBlock(nn.Module):
             out = self.last_activation( out )
 
         return out
-    
+
 
 def conv5x5_relu(in_channels, out_channels, stride):
     return conv(in_channels, out_channels, 5, stride, 2, activation_fn=partial(nn.ReLU, inplace=True))
@@ -345,13 +242,7 @@ class OutBlock(nn.Module):
         return x
 
 
-class SRNDeblurNet(nn.Module):
-    """SRN-DeblurNet 
-    examples:
-        net = SRNDeblurNet()
-        y = net( x1 , x2 , x3）#x3 is the coarsest image while x1 is the finest image
-    """
-
+class Net(nn.Module):
     def __init__(self, upsample_fn=partial(torch.nn.functional.interpolate, mode='bilinear'), xavier_init_all=True):
         super(type(self), self).__init__()
         self.upsample_fn = upsample_fn
@@ -369,12 +260,12 @@ class SRNDeblurNet(nn.Module):
         self.outblock_attention = OutBlock(32, 3)
 
         self.input_padding = None
-        if xavier_init_all:
-            for name, m in self.named_modules():
-                if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
-                    torch.nn.init.xavier_normal_(m.weight)
-                    # torch.nn.init.kaiming_normal_(m.weight)
-                    print(name)
+        # if xavier_init_all:
+        #     for name, m in self.named_modules():
+        #         if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
+        #             torch.nn.init.xavier_normal_(m.weight)
+        #             # torch.nn.init.kaiming_normal_(m.weight)
+        #             print(name)
 
     def forward_step(self, x, hidden_state):
         e32 = self.inblock(x)
@@ -393,103 +284,132 @@ class SRNDeblurNet(nn.Module):
         d3_content = torch.tanh(d3_content)
         d3_attention = torch.nn.functional.softmax(d3_attention, dim=1)
         
-        d3_attentions = list(torch.split(d3_attention, 1, 1))
-        
-        for i in range(3):
-            d3_attentions[i] = d3_attentions[i].repeat(1, 3, 1, 1)
-        
         xs = list(torch.split(x, 3, 1))
         
-        d3 = xs[0] * d3_attentions[0] + xs[1] * d3_attentions[1] + d3_content * d3_attentions[2]
+        d3 = d3_content * d3_attention + (xs[0]+xs[1]) * (1 - d3_attention)
 
-        return d3, h, c
+
+        return d3, h, c, d3_attention
 
     def forward(self, b1, b2, b3):
-        # if self.input_padding is None or self.input_padding.shape != b3.shape:
-        #     self.input_padding = torch.zeros_like(b3)
         h, c = self.convlstm.init_hidden(b3.shape[0], (b3.shape[-2]//4, b3.shape[-1]//4))
 
-        i3, h, c = self.forward_step(
+        i3, h, c, a3 = self.forward_step(
             torch.cat([b3, b3], 1), (h, c))
 
         c = self.upsample_fn(c, scale_factor=2)
         h = self.upsample_fn(h, scale_factor=2)
-        i2, h, c = self.forward_step(
+        i2, h, c, a2 = self.forward_step(
             torch.cat([b2, self.upsample_fn(i3, scale_factor=2)], 1), (h, c))
 
         c = self.upsample_fn(c, scale_factor=2)
         h = self.upsample_fn(h, scale_factor=2)
-        i1, h, c = self.forward_step(
+        i1, h, c, a1 = self.forward_step(
             torch.cat([b1, self.upsample_fn(i2, scale_factor=2)], 1), (h, c))
 
-        # y2 = self.upsample_fn( y1 , (128,128) )
-        # y3 = self.upsample_fn( y2 , (64,64) )
+        return i1, i2, i3, a1, a2, a3
 
-        # return y1 , y2 , y3
-        return i1, i2, i3
-
-class SRNATTS_Net(nn.Module, BaseModel):
+class ATT_Deblur_Net(nn.Module, BaseModel):
     def __init__(self, args) -> None:
-        super(SRNATTS_Net, self).__init__()
+        super(ATT_Deblur_Net, self).__init__()
         BaseModel.__init__(self, args)
         
-        self.net = SRNDeblurNet()
+        self.net = Net()
         self.nets.append(self.net)
-        
-        # self.optimizer = torch.optim.Adam( 
-        #     self.net.parameters(),
-        #     lr = args.lr,
-        #     weight_decay = args.weight_decay
-        # )
-        
-        self.optimizer =optim.SGD(
-            self.net.parameters(), 
-            lr=args.lr,
-            momentum=args.momentum, 
-            nesterov=True, 
-            weight_decay=args.weight_decay)
-        
-        # self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, args.gamma)
-        self.scheduler = MultiStepLR(self.optimizer, args.milestones, args.gamma)
-        self.schedulers.append(self.scheduler)
-        self.loss_function_mse = nn.MSELoss(reduction='mean')
-        
-        self.loss_names += ['mse_1','mse_2','mse_3']
-        
-        self.meter_init()
+        self.isTrain = self.args.isTrain
+        if self.isTrain:
+            if args.optimizer == 'adam':
+                self.optimizer = torch.optim.Adam( 
+                    self.net.parameters(),
+                    lr = args.lr,
+                    weight_decay = args.weight_decay
+                )
+            elif args.optimiazae == 'sgd':
+                self.optimizer =optim.SGD(
+                    self.net.parameters(), 
+                    lr=args.lr,
+                    momentum=args.momentum, 
+                    nesterov=True, 
+                    weight_decay=args.weight_decay)
+            
+            if args.scheduler == 'multisteplr':
+                self.scheduler = MultiStepLR(self.optimizer, args.milestones, args.gamma)
+            elif args.scheduler == 'cosineannealinglr':
+                self.scheduler = CosineAnnealingLR(self.optimizer,T_max=args.T_max)
+            # self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, args.gamma)
+            
+            self.schedulers.append(self.scheduler)
+            self.loss_function_mse = nn.MSELoss()
+            self.loss_function_l1 = nn.L1Loss()
+            # self.loss_function_ssim = 
+            # self.loss_names += ['mse_1','mse_2','mse_3']
+            self.loss_names += ['l1_1','l1_2','l1_3','consistency_confidence','consistency']
+            self.meter_init()
+            self.upsample_fn = partial(torch.nn.functional.interpolate, mode='bilinear')
+        else:
+            self.result_save_root = os.path.join(args.result_save_root, 'images') 
+            
+            
         
         print('SRNATTS_Net is created')
         
     def to_cuda(self):
         self.net = self.net.cuda()
         self.loss_function_mse = self.loss_function_mse.cuda()
+        self.loss_function_l1 = self.loss_function_l1.cuda()
         return self
         
     def set_input(self, data):
         # self.blur_images_3, self.blur_images_2, self.blur_images_1,\
         # self.sharp_images_3, self.sharp_images_2, self.sharp_images_1 = data
-        self.blur_images_1, self.blur_images_2, self.blur_images_3,\
-            self.sharp_images_1, self.sharp_images_2, self.sharp_images_3 = data
-        self.blur_images_1  = self.blur_images_1.cuda()
-        self.blur_images_2  = self.blur_images_2.cuda()
-        self.blur_images_3  = self.blur_images_3.cuda()
-        self.sharp_images_1 = self.sharp_images_1.cuda()
-        self.sharp_images_2 = self.sharp_images_2.cuda()
-        self.sharp_images_3 = self.sharp_images_3.cuda()
+        if self.isTrain:
+            self.blur_images_1, self.blur_images_2, self.blur_images_3,\
+                self.sharp_images_1, self.sharp_images_2, self.sharp_images_3 = data
+        else:
+            self.blur_images_1, self.blur_images_2, self.blur_images_3,\
+                self.sharp_images_1, self.sharp_images_2, self.sharp_images_3, self.paths = data
+        self.blur_images_3  = self.blur_images_3.cuda(non_blocking = True)
+        self.blur_images_2  = self.blur_images_2.cuda(non_blocking = True)
+        self.blur_images_1  = self.blur_images_1.cuda(non_blocking = True)
+        
+        self.sharp_images_1 = self.sharp_images_1.cuda(non_blocking = True)
+        self.sharp_images_2 = self.sharp_images_2.cuda(non_blocking = True)
+        self.sharp_images_3 = self.sharp_images_3.cuda(non_blocking = True)
         
     def forward(self):
-        self.restored_images_1, self.restored_images_2, self.restored_images_3 =\
-            self.net(self.blur_images_1, self.blur_images_2, self.blur_images_3)
+        self.restored_images_1, self.restored_images_2, self.restored_images_3,\
+        self.attention_1, self.attention_2, self.attention_3 = self.net(self.blur_images_1, self.blur_images_2, self.blur_images_3)
+        
+        # self.attention_1 = self.upsample_fn(self.attention_1, size=(224,224))
+        # self.attention_2 = self.upsample_fn(self.attention_2, size=(224,224))
+        
         
     def train_step(self):
-        self.forward()
-        self.train_loss_mse_1 = self.loss_function_mse(self.restored_images_1, self.sharp_images_1)
-        self.train_loss_mse_2 = self.loss_function_mse(self.restored_images_2, self.sharp_images_2)
-        self.train_loss_mse_3 = self.loss_function_mse(self.restored_images_3, self.sharp_images_3)
-        
-        self.train_loss_all = self.train_loss_mse_1 + self.train_loss_mse_2 + self.train_loss_mse_3
-        
         self.optimizer.zero_grad()
+        with autocast():
+            self.forward()
+            
+            self.train_loss_l1_1 = self.loss_function_l1(self.restored_images_1, self.sharp_images_1)
+            self.train_loss_l1_2 = self.loss_function_l1(self.restored_images_2, self.sharp_images_2)
+            self.train_loss_l1_3 = self.loss_function_l1(self.restored_images_3, self.sharp_images_3)
+            
+            self.train_loss_consistency_confidence =\
+                self.loss_function_l1(self.upsample_fn(self.attention_3, (112,112)), self.attention_2) +\
+                self.loss_function_l1(self.upsample_fn(self.attention_2, (224,224)), self.attention_1)
+                
+            self.train_loss_consistency = \
+                self.loss_function_l1(self.upsample_fn(self.restored_images_3, (112,112)), self.restored_images_2) +\
+                self.loss_function_l1(self.upsample_fn(self.restored_images_2, (224,224)), self.restored_images_1)
+            
+            self.train_loss_all =   self.train_loss_l1_1 + self.train_loss_l1_2 + self.train_loss_l1_3 +\
+                                    self.train_loss_consistency/2 + self.train_loss_consistency_confidence/2
+                            
+            if torch.isnan(self.train_loss_all).any():
+                raise RuntimeError('NAN!!!')
+            if torch.isinf(self.train_loss_all).any():
+                raise ZeroDivisionError('INF!!!')
+            # self.train_loss_all = self.train_loss_mse_1 + self.train_loss_mse_2 + self.train_loss_mse_3
+        
         self.train_loss_all.backward()
         torch.nn.utils.clip_grad_norm_(self.net.convlstm.parameters(),3)
         self.optimizer.step()
@@ -498,33 +418,49 @@ class SRNATTS_Net(nn.Module, BaseModel):
         
     def valid_step(self):
         with torch.no_grad():
-            self.forward()
-            self.valid_loss_mse_1 = self.loss_function_mse(self.restored_images_1, self.sharp_images_1)
-            self.valid_loss_mse_2 = self.loss_function_mse(self.restored_images_2, self.sharp_images_2)
-            self.valid_loss_mse_3 = self.loss_function_mse(self.restored_images_3, self.sharp_images_3)
+            with autocast():
+                self.forward()
+                
+                self.valid_loss_l1_1 = self.loss_function_l1(self.restored_images_1, self.sharp_images_1)
+                self.valid_loss_l1_2 = self.loss_function_l1(self.restored_images_2, self.sharp_images_2)
+                self.valid_loss_l1_3 = self.loss_function_l1(self.restored_images_3, self.sharp_images_3)
+                
+                self.valid_loss_consistency_confidence =\
+                    self.loss_function_l1(self.upsample_fn(self.attention_3, (112,112)), self.attention_2) +\
+                    self.loss_function_l1(self.upsample_fn(self.attention_2, (224,224)), self.attention_1)
+                    
+                self.valid_loss_consistency = \
+                    self.loss_function_l1(self.upsample_fn(self.restored_images_3, (112,112)), self.restored_images_2) +\
+                    self.loss_function_l1(self.upsample_fn(self.restored_images_2, (224,224)), self.restored_images_1)
+                
+                self.valid_loss_all =   self.valid_loss_l1_1 + self.valid_loss_l1_2 + self.valid_loss_l1_3 +\
+                                        self.valid_loss_consistency/2 + self.valid_loss_consistency_confidence/2
             
-            self.valid_loss_all = self.valid_loss_mse_1 + self.valid_loss_mse_2 + self.valid_loss_mse_3
+            # self.valid_loss_mse_1 = self.loss_function_mse(self.restored_images_1, self.sharp_images_1)
+            # self.valid_loss_mse_2 = self.loss_function_mse(self.restored_images_2, self.sharp_images_2)
+            # self.valid_loss_mse_3 = self.loss_function_mse(self.restored_images_3, self.sharp_images_3)
+            # self.valid_loss_all = self.valid_loss_mse_1 + self.valid_loss_mse_2 + self.valid_loss_mse_3
             
             self.update_meters(False, self.blur_images_3.size(0))
         
         
     def load_network(self):
         ckpt = torch.load(self.args.load_ckpt_path)
-        self.net.load_state_dict(ckpt['state_dict'])
-        self.optimizer.load_state_dict(ckpt['optimizer'])
-        self.scheduler.load_state_dict(ckpt['scheduler'])
+        if self.isTrain:
+            self.net.load_state_dict(ckpt['state_dict'])
+            self.optimizer.load_state_dict(ckpt['optimizer'])
+            self.scheduler.load_state_dict(ckpt['scheduler'])
+        else:
+            self.net.load_state_dict(ckpt['state_dict'])
             
-        
+    def get_and_save_visual_results(self):
+        with torch.no_grad():
+            with autocast():
+                self.forward()
+                
+                for img_tensor, name in zip(self.restored_images_1, self.paths):
+                    img_rgb = f.to_pil_image(img_tensor)
+                    img_rgb.save(os.path.join(self.result_save_root, name))
         
 if __name__ == '__main__':
-    net = SRNDeblurNet()
-    
-    # x1 = torch.rand((4,3,256,256))
-    # x2 = torch.rand((4,3,128,128))
-    # x3 = torch.rand((4,3,64,64))
-    
-    # y1, y2, y3 = net(x1, x2, x3)
-    
-    # print(y1.shape)
-    # print(y2.shape)
-    # print(y3.shape)
+    ...
