@@ -4,6 +4,10 @@ from .SRNATTS_model import SRNATTS_Net
 from .UNet_model import U_Net
 from .ATT_model import ATT_Net
 from .ATT_Deblur_model import ATT_Deblur_Net
+from .ATT_Deblur_model_level1 import ATT_Deblur_Net_level1
+from .ATT_Deblur_model_level2 import ATT_Deblur_Net_level2
+from .ATT_Deblur_model_level3 import ATT_Deblur_Net_level3
+from .ATT_Deblur_model_level4 import ATT_Deblur_Net_level4
 
 
 def get_model(args):
@@ -19,5 +23,13 @@ def get_model(args):
         return ATT_Net(args)
     elif args.model == 'ATT_Deblur_Net':
         return ATT_Deblur_Net(args)
+    elif args.model == 'ATT_Deblur_Net_level1':
+        return ATT_Deblur_Net_level1(args)
+    elif args.model == 'ATT_Deblur_Net_level2':
+        return ATT_Deblur_Net_level2(args)
+    elif args.model == 'ATT_Deblur_Net_level3':
+        return ATT_Deblur_Net_level3(args)
+    elif args.model == 'ATT_Deblur_Net_level4':
+        return ATT_Deblur_Net_level4(args)
     else:
         raise NotImplementedError("{} is not supported".format(args.model))

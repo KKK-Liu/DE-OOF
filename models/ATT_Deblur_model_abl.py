@@ -345,6 +345,8 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
             self.loss_names += ['l1_1','l1_2','l1_3','consistency_confidence','consistency']
             self.meter_init()
             self.upsample_fn = partial(torch.nn.functional.interpolate, mode='bilinear')
+            self.lambda_CM = args.lambda_CM
+            self.lambda_RR = args.lambda_RR
         else:
             self.result_save_root = os.path.join(args.result_save_root, 'images') 
             
@@ -400,7 +402,8 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
                 self.loss_function_l1(self.upsample_fn(self.restored_images_2, (224,224)), self.restored_images_1)
             
             self.train_loss_all =   self.train_loss_l1_1 + self.train_loss_l1_2 + self.train_loss_l1_3 +\
-                                    self.train_loss_consistency/2 + self.train_loss_consistency_confidence/2
+                                    self.lambda_RR * self.train_loss_consistency/2 +\
+                                    self.lambda_CM * self.train_loss_consistency_confidence/2
                             
             if torch.isnan(self.train_loss_all).any():
                 raise RuntimeError('NAN!!!')
@@ -459,6 +462,11 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
                 for img_tensor, name in zip(self.restored_images_1, self.paths):
                     img_rgb = f.to_pil_image(img_tensor)
                     img_rgb.save(os.path.join(self.result_save_root, name))
-        
+
+# number of hierarchical levels
+# existence of LSTM
+# lambda blur mask
+# lambda Restoration regularization
+
 if __name__ == '__main__':
     ...

@@ -817,10 +817,15 @@ def save_result_test():
     img = f.to_pil_image(img)
     
     img.save('./TmpImages/test.png')
-    
+
+def gray_image_generation():
+    img = np.ones((200,400,3),dtype=np.uint8) * 128
+    cv2.imwrite('./TmpImages/gray.png', img)
+gray_image_generation()
+
 # make_zip("D:/desktop/de-OOF", 'D:/desktop/code.zip')
 # make_zip('D:/desktop\\de-OOF', 'D:/desktop/code.zip')
-save_result_test()
+# save_result_test()
 # mse2psnr()
 # wandb_test()
 # oswalk_test()

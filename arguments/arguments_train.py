@@ -41,6 +41,9 @@ parser.add_argument('--gamma', type=float, default=0.1)
 parser.add_argument('--milestones', type=int, nargs='+',default=[40, 80, 120, 160])
 parser.add_argument('--T_max', type=int, default=40)
 
+'''loss function lambda'''
+parser.add_argument('--lambda_CM',type=float, default=1.0)
+parser.add_argument('--lambda_RR',type=float, default=1.0)
 
 '''other options'''
 parser.add_argument('--fixseed', type=bool, default=True)
@@ -57,6 +60,8 @@ parser.add_argument('--use_wandb', type=bool, default=True)
 def get_arguements():
     args = parser.parse_args()
     # print(args._get_kwargs())
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
+    assert torch.cuda.is_available(), "how could you do not use cuda???"
     
     args.name = args.name + time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())
     args.ckpt_save_path = os.path.join(args.ckpt_save_path, args.name)

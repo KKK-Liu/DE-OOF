@@ -95,5 +95,4 @@ def main():
 
 
 if __name__ == '__main__':
-    assert torch.cuda.is_available(), "how could you do not use cuda???"
     main()

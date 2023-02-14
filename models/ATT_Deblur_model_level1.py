@@ -290,27 +290,26 @@ class Net(nn.Module):
 
         return d3, h, c, d3_attention
 
-    def forward(self, b1, b2, b3):
-        h, c = self.convlstm.init_hidden(b3.shape[0], (b3.shape[-2]//4, b3.shape[-1]//4))
+    def forward(self, b1, b2, b3, b4):
+        h, c = self.convlstm.init_hidden(b1.shape[0], (b1.shape[-2]//4, b1.shape[-1]//4))
 
-        i3, h, c, a3 = self.forward_step(
-            torch.cat([b3, b3], 1), (h, c))
-
-        c = self.upsample_fn(c, scale_factor=2)
-        h = self.upsample_fn(h, scale_factor=2)
-        i2, h, c, a2 = self.forward_step(
-            torch.cat([b2, self.upsample_fn(i3, scale_factor=2)], 1), (h, c))
-
-        c = self.upsample_fn(c, scale_factor=2)
-        h = self.upsample_fn(h, scale_factor=2)
         i1, h, c, a1 = self.forward_step(
-            torch.cat([b1, self.upsample_fn(i2, scale_factor=2)], 1), (h, c))
+            torch.cat([b1, b1], 1), (h, c))
 
-        return i1, i2, i3, a1, a2, a3
+        i2 = torch.zeros(b2.shape).cuda()
+        a2 = torch.zeros(b2.shape).cuda()
+        
+        i3 = torch.zeros(b3.shape).cuda()
+        a3 = torch.zeros(b3.shape).cuda()
+        
+        i4 = torch.zeros(b4.shape).cuda()
+        a4 = torch.zeros(b4.shape).cuda()
+        
+        return i1, i2, i3, i4, a1, a2, a3, a4
 
-class ATT_Deblur_Net(nn.Module, BaseModel):
+class ATT_Deblur_Net_level1(nn.Module, BaseModel):
     def __init__(self, args) -> None:
-        super(ATT_Deblur_Net, self).__init__()
+        super(ATT_Deblur_Net_level1, self).__init__()
         BaseModel.__init__(self, args)
         
         self.net = Net()
@@ -342,9 +341,11 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
             self.loss_function_l1 = nn.L1Loss()
             # self.loss_function_ssim = 
             # self.loss_names += ['mse_1','mse_2','mse_3']
-            self.loss_names += ['l1_1','l1_2','l1_3','consistency_confidence','consistency']
+            self.loss_names += ['l1_1']
             self.meter_init()
             self.upsample_fn = partial(torch.nn.functional.interpolate, mode='bilinear')
+            self.lambda_CM = args.lambda_CM
+            self.lambda_RR = args.lambda_RR
         else:
             self.result_save_root = os.path.join(args.result_save_root, 'images') 
             
@@ -361,11 +362,13 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
         # self.blur_images_3, self.blur_images_2, self.blur_images_1,\
         # self.sharp_images_3, self.sharp_images_2, self.sharp_images_1 = data
         if self.isTrain:
-            self.blur_images_1, self.blur_images_2, self.blur_images_3,\
-                self.sharp_images_1, self.sharp_images_2, self.sharp_images_3 = data
+            self.blur_images_1, self.blur_images_2, self.blur_images_3,self.blur_images_4,\
+                self.sharp_images_1, self.sharp_images_2, self.sharp_images_3, self.sharp_images_4 = data
         else:
-            self.blur_images_1, self.blur_images_2, self.blur_images_3,\
-                self.sharp_images_1, self.sharp_images_2, self.sharp_images_3, self.paths = data
+            self.blur_images_1, self.blur_images_2, self.blur_images_3,self.blur_images_4,\
+                self.sharp_images_1, self.sharp_images_2, self.sharp_images_3,self.sharp_images_4, self.paths = data
+                
+        self.blur_images_4  = self.blur_images_4.cuda(non_blocking = True)
         self.blur_images_3  = self.blur_images_3.cuda(non_blocking = True)
         self.blur_images_2  = self.blur_images_2.cuda(non_blocking = True)
         self.blur_images_1  = self.blur_images_1.cuda(non_blocking = True)
@@ -373,10 +376,12 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
         self.sharp_images_1 = self.sharp_images_1.cuda(non_blocking = True)
         self.sharp_images_2 = self.sharp_images_2.cuda(non_blocking = True)
         self.sharp_images_3 = self.sharp_images_3.cuda(non_blocking = True)
+        self.sharp_images_4 = self.sharp_images_4.cuda(non_blocking = True)
         
     def forward(self):
-        self.restored_images_1, self.restored_images_2, self.restored_images_3,\
-        self.attention_1, self.attention_2, self.attention_3 = self.net(self.blur_images_1, self.blur_images_2, self.blur_images_3)
+        self.restored_images_1, self.restored_images_2, self.restored_images_3,self.restored_images_4,\
+        self.attention_1, self.attention_2, self.attention_3, self.attention_4 \
+            = self.net(self.blur_images_1, self.blur_images_2, self.blur_images_3, self.blur_images_4)
         
         # self.attention_1 = self.upsample_fn(self.attention_1, size=(224,224))
         # self.attention_2 = self.upsample_fn(self.attention_2, size=(224,224))
@@ -388,19 +393,9 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
             self.forward()
             
             self.train_loss_l1_1 = self.loss_function_l1(self.restored_images_1, self.sharp_images_1)
-            self.train_loss_l1_2 = self.loss_function_l1(self.restored_images_2, self.sharp_images_2)
-            self.train_loss_l1_3 = self.loss_function_l1(self.restored_images_3, self.sharp_images_3)
-            
-            self.train_loss_consistency_confidence =\
-                self.loss_function_l1(self.upsample_fn(self.attention_3, (112,112)), self.attention_2) +\
-                self.loss_function_l1(self.upsample_fn(self.attention_2, (224,224)), self.attention_1)
-                
-            self.train_loss_consistency = \
-                self.loss_function_l1(self.upsample_fn(self.restored_images_3, (112,112)), self.restored_images_2) +\
-                self.loss_function_l1(self.upsample_fn(self.restored_images_2, (224,224)), self.restored_images_1)
-            
-            self.train_loss_all =   self.train_loss_l1_1 + self.train_loss_l1_2 + self.train_loss_l1_3 +\
-                                    self.train_loss_consistency/2 + self.train_loss_consistency_confidence/2
+
+            self.train_loss_all =   self.train_loss_l1_1
+
                             
             if torch.isnan(self.train_loss_all).any():
                 raise RuntimeError('NAN!!!')
@@ -420,19 +415,8 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
                 self.forward()
                 
                 self.valid_loss_l1_1 = self.loss_function_l1(self.restored_images_1, self.sharp_images_1)
-                self.valid_loss_l1_2 = self.loss_function_l1(self.restored_images_2, self.sharp_images_2)
-                self.valid_loss_l1_3 = self.loss_function_l1(self.restored_images_3, self.sharp_images_3)
-                
-                self.valid_loss_consistency_confidence =\
-                    self.loss_function_l1(self.upsample_fn(self.attention_3, (112,112)), self.attention_2) +\
-                    self.loss_function_l1(self.upsample_fn(self.attention_2, (224,224)), self.attention_1)
-                    
-                self.valid_loss_consistency = \
-                    self.loss_function_l1(self.upsample_fn(self.restored_images_3, (112,112)), self.restored_images_2) +\
-                    self.loss_function_l1(self.upsample_fn(self.restored_images_2, (224,224)), self.restored_images_1)
-                
-                self.valid_loss_all =   self.valid_loss_l1_1 + self.valid_loss_l1_2 + self.valid_loss_l1_3 +\
-                                        self.valid_loss_consistency/2 + self.valid_loss_consistency_confidence/2
+
+                self.valid_loss_all =   self.valid_loss_l1_1
             
             # self.valid_loss_mse_1 = self.loss_function_mse(self.restored_images_1, self.sharp_images_1)
             # self.valid_loss_mse_2 = self.loss_function_mse(self.restored_images_2, self.sharp_images_2)
@@ -459,6 +443,10 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
                 for img_tensor, name in zip(self.restored_images_1, self.paths):
                     img_rgb = f.to_pil_image(img_tensor)
                     img_rgb.save(os.path.join(self.result_save_root, name))
-        
+
+# number of hierarchical levels(lambda = 0,0)
+# lambda blur mask
+# lambda Restoration regularization
+
 if __name__ == '__main__':
     ...
