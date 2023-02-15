@@ -1,19 +1,16 @@
-from torchvision.transforms import ToTensor, ToPILImage
+from torchvision.transforms import ToTensor
 from PIL import Image
 import os
 import numpy as np
 from tqdm import tqdm
 
 import torch
-from arguments.arguments_eval import get_arguements
 from models import get_model
-from dataloader.dataloader_paired import get_eval_dataloader
+from dataloader import get_eval_dataloader
 import time
 
 
 from piq import ssim, multi_scale_ssim,multi_scale_gmsd, vif_p, StyleLoss, ContentLoss, LPIPS, DISTS, psnr, fsim, vsi, mdsi, haarpsi, srsim, PieAPP, dss, information_weighted_ssim
-
-import matplotlib.pyplot as plt
 
 import argparse
 
@@ -21,16 +18,21 @@ parser = argparse.ArgumentParser()
 
 ''' run '''
 parser.add_argument('--name',type=str, default='name')
-
+parser.add_argument('--choice',type=int, default=3,help='0-eval,1-inferrence and save, 2-inferrence and eval, 3-inferrence and eval and save')
 ''' dataloader '''
+parser.add_argument('--dataset_name', type=str, default='paired_4')
+parser.add_argument('--data_root',type=str, default='./data/CRC-224/CRC-02-01-22-27')
+parser.add_argument('--batch_size',type=int, default=4)
+parser.add_argument('--num_workers',type=int, default=8)
+
+parser.add_argument('--sharp_root',type=str, default='')
+parser.add_argument('--blurred_root',type=str, default='')
 
 ''' model '''
-
-parser.add_argument('--ckpt_load_path', type=str,default='')
-parser.add_argument('--choice',type=int, default=0,help='0-eval,1-inferrence and save, 2-inferrence and eval, 3-inferrence and eval and save')
-parser.add_argument('--data_root',type=str, default='')
-parser.add_argument('--save_root', type=str, default='')
-parser.add_argument('--sharp_root')
+parser.add_argument('--model', type=str,default='ATT_Deblur_Net_level1')
+parser.add_argument('--isTrain', type=bool, default=False)
+parser.add_argument('--result_save_root', type=str, default='./results')
+parser.add_argument('--ckpt_load_path', type=str,default='./checkpoints/level-abl/level1.pth.tar')
 
 metrics = {
     'mse':torch.nn.functional.mse_loss,
@@ -54,11 +56,6 @@ metrics = {
     # 'DISTS':DISTS(),
     # 'PieAPP':PieAPP(),
 }
-
-# whether to inferrence
-# whether to save
-# whether to eval
-
 
 def eval(root_sharp:str, root_blurred:str):
     losses = []
@@ -106,12 +103,13 @@ def eval(root_sharp:str, root_blurred:str):
 def inferrence_save_and_eval(args):
     
     model = get_model(args)
+    model.load_network()
     model.to_cuda()
     
     dataloader = get_eval_dataloader(args)
     
     model.mode('valid')
-    for data in dataloader:
+    for data in tqdm(dataloader):
         model.set_input(data)
         model.get_visuals()
         
@@ -124,19 +122,21 @@ def inferrence_save_and_eval(args):
     if args.choice in [2,3]:
         model.eval_result_save(metrics)
             
-            
-        
-    
 def main():
     args = parser.parse_args()
+    args.name = args.name + time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())
+    args.result_save_root = os.path.join(args.result_save_root, args.name)
+    os.makedirs(args.result_save_root, exist_ok=True)
+    
     ''' 
         0-eval,
         1-inferrence and save,
         2-inferrence and eval,
         3-inferrence and eval and save 
     '''
+    
     if args.choice == 0:
-        eval(args.root_sharp, args.root_blurred)
+        eval(args.sharp_root, args.blurred_root)
     elif args.choice in [1,2,3]:
         inferrence_save_and_eval(args)
     else:

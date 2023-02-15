@@ -123,8 +123,8 @@ def get_eval_dataloader(args):
         shuffle=False,
         num_workers=args.num_workers,
         pin_memory=True,
-        # prefetch_factor=8,
-        # persistent_workers=True,
+        prefetch_factor=8,
+        persistent_workers=True,
     )
     
     return eval_dataloader

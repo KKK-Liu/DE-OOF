@@ -343,6 +343,8 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
             self.loss_function_l1 = nn.L1Loss()
             # self.loss_function_ssim = 
             # self.loss_names += ['mse_1','mse_2','mse_3']
+            # self.train_loss_names += ['l1_1','l1_2','l1_3','consistency_confidence','consistency']
+            # self.valid_loss_names += ['l1_1','l1_2','l1_3','consistency_confidence','consistency']
             self.loss_names += ['l1_1','l1_2','l1_3','consistency_confidence','consistency']
             self.meter_init()
             self.upsample_fn = partial(torch.nn.functional.interpolate, mode='bilinear')
@@ -378,7 +380,7 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
         for image_restored, image_sharp in zip(self.restored_images_1, self.sharp_images_1):
             this_losses = []
             for _, metric_function in metrics.items():
-                this_losses.append(metric_function(image_restored, image_sharp).data)
+                this_losses.append(metric_function(image_restored.unsqueeze(0), image_sharp.unsqueeze(0)).data)
             self.eval_losses.append(this_losses)
 
     def eval_result_save(self, metrics:dict):

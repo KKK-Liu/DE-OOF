@@ -11,7 +11,8 @@ from functools import partial
 
 import torchvision.transforms.functional as f
 import os
-            
+import numpy as np
+
 class CLSTM_cell(nn.Module):
     """Initialize a basic Conv LSTM cell.
     Args:
@@ -288,6 +289,8 @@ class Net(nn.Module):
         
         d3 = d3_content * d3_attention + (xs[0]+xs[1]) * (1 - d3_attention)
 
+        d3 = torch.sigmoid(d3)
+        
         return d3, h, c, d3_attention
 
     def forward(self, b1, b2, b3, b4):
@@ -315,6 +318,8 @@ class ATT_Deblur_Net_level1(nn.Module, BaseModel):
         self.net = Net()
         self.nets.append(self.net)
         self.isTrain = self.args.isTrain
+        self.loss_function_mse = nn.MSELoss()
+        self.loss_function_l1 = nn.L1Loss()
         if self.isTrain:
             if args.optimizer == 'adam':
                 self.optimizer = torch.optim.Adam( 
@@ -337,8 +342,7 @@ class ATT_Deblur_Net_level1(nn.Module, BaseModel):
             # self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, args.gamma)
             
             self.schedulers.append(self.scheduler)
-            self.loss_function_mse = nn.MSELoss()
-            self.loss_function_l1 = nn.L1Loss()
+            
             # self.loss_function_ssim = 
             # self.loss_names += ['mse_1','mse_2','mse_3']
             self.loss_names += ['l1_1']
@@ -347,11 +351,64 @@ class ATT_Deblur_Net_level1(nn.Module, BaseModel):
             self.lambda_CM = args.lambda_CM
             self.lambda_RR = args.lambda_RR
         else:
-            self.result_save_root = os.path.join(args.result_save_root, 'images') 
+            self.result_save_root = args.result_save_root 
+            os.makedirs(os.path.join(self.result_save_root, 'image'), exist_ok=True)
+            self.visual_names = ['restored_images_1']
+            self.eval_losses = []
+            self.image_names = [] 
             
         
-        print('SRNATTS_Net is created')
+        print('SRNATTS_Net level1  is created')
         
+    def get_visuals(self):
+        with torch.no_grad():
+            with autocast():
+                self.forward()
+                
+    def save_visuals(self):
+        for visual_name in self.visual_names:
+            visual_batch = getattr(self,visual_name).detach().cpu()
+            for image, name in zip(visual_batch, self.paths):
+                image = f.to_pil_image(image)
+                save_file_name = os.path.join(
+                    self.result_save_root,
+                    'image',
+                    '{}_{}.png'.format(name.replace('.png',''),visual_name)
+                )
+                image.save(save_file_name)
+        
+        
+    def eval_visuals(self, metrics:dict):
+        self.image_names += self.paths
+        
+        for image_restored, image_sharp in zip(self.restored_images_1, self.sharp_images_1):
+            this_losses = []
+            for _, metric_function in metrics.items():
+                this_losses.append(metric_function(image_restored.unsqueeze(0).cuda(), image_sharp.unsqueeze(0).cuda()).data)
+            self.eval_losses.append(this_losses)
+
+    def eval_result_save(self, metrics:dict):
+        with open(os.path.join(self.result_save_root, 'metric values.csv'), 'w') as f:
+            line = ','.join(['image name']+list(metrics.keys()))+'\n'
+            f.write(line)
+            for this_losses, image_name in zip(self.eval_losses, self.image_names):
+                line = ','.join([image_name]+list(map(str, this_losses))) + '\n'
+                f.write(line)
+
+
+        self.eval_losses = np.array(self.eval_losses)
+        np.save(os.path.join(self.result_save_root,'eval_losses.npy'), self.eval_losses)
+        
+        losses_item = np.mean(self.eval_losses, axis=0)
+
+        with open(os.path.join(self.result_save_root, 'eval_result.txt'), 'w') as f:
+            for metric, value in zip(metrics.keys(), losses_item):
+                f.write("{:>20}:{:<20}\n".format(metric, value))
+                
+        with open(os.path.join(self.result_save_root, 'eval_result.txt'), 'r') as f:
+            for line in f.readlines():
+                print(line)
+                
     def to_cuda(self):
         self.net = self.net.cuda()
         self.loss_function_mse = self.loss_function_mse.cuda()
@@ -427,7 +484,7 @@ class ATT_Deblur_Net_level1(nn.Module, BaseModel):
         
         
     def load_network(self):
-        ckpt = torch.load(self.args.load_ckpt_path)
+        ckpt = torch.load(self.args.ckpt_load_path)
         if self.isTrain:
             self.net.load_state_dict(ckpt['state_dict'])
             self.optimizer.load_state_dict(ckpt['optimizer'])

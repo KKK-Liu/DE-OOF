@@ -9,9 +9,13 @@ class BaseModel(ABC):
         
         self.args = args
         self.isTrain = args.isTrain
-        self.save_dir = args.ckpt_save_path  # save all the checkpoints to save_dir
+        if args.isTrain:
+            self.save_dir = args.ckpt_save_path  # save all the checkpoints to save_dir
 
+        # self.train_loss_names = ['all']
+        # self.valid_loss_names = ['all']
         self.loss_names = ['all']
+        
         self.model_names = []
         self.nets = []
         self.visual_names = []
