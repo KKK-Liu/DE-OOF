@@ -36,7 +36,6 @@ metrics = {
     # 'LPIPS':LPIPS(),
     # 'DISTS':DISTS(),
     # 'PieAPP':PieAPP(),
-    
 }
 
 def eval_cuda(root_blurred, root_sharp):

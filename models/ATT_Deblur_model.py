@@ -11,7 +11,8 @@ from functools import partial
 
 import torchvision.transforms.functional as f
 import os
-            
+import numpy as np
+
 class CLSTM_cell(nn.Module):
     """Initialize a basic Conv LSTM cell.
     Args:
@@ -346,11 +347,62 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
             self.meter_init()
             self.upsample_fn = partial(torch.nn.functional.interpolate, mode='bilinear')
         else:
-            self.result_save_root = os.path.join(args.result_save_root, 'images') 
-            
-        
+            self.result_save_root = args.result_save_root 
+            self.visual_names = ['restored_images_1']
+            self.eval_losses = []
+            self.image_names = []
+
         print('SRNATTS_Net is created')
         
+    def get_visuals(self):
+        with torch.no_grad():
+            with autocast():
+                self.forward()
+                
+    def save_visuals(self):
+        for visual_name in self.visual_names:
+            visual_batch = getattr(self,visual_name).detach().cpu()
+            for image, name in zip(visual_batch, self.paths):
+                image = f.to_pil_image(image)
+                save_file_name = os.path.join(
+                    self.result_save_root,
+                    'image',
+                    '{}_{}.png'.format(name.replace('.png',''),visual_name)
+                )
+                image.save(save_file_name)
+        
+        
+    def eval_visuals(self, metrics:dict):
+        self.image_names += self.paths
+        
+        for image_restored, image_sharp, name in zip(self.restored_images_1, self.sharp_images_1, self.paths):
+            this_losses = []
+            for _, metric_function in metrics.items():
+                this_losses.append(metric_function(image_restored, image_sharp).data)
+            self.eval_losses.append(this_losses)
+
+    def eval_result_save(self, metrics:dict):
+        with open(os.path.join(self.result_save_root, 'metric values.csv'), 'w') as f:
+            line = ','.join(['image name']+list(metrics.keys()))+'\n'
+            f.write(line)
+            for this_losses, image_name in zip(self.eval_losses, self.image_names):
+                line = ','.join([image_name]+list(map(str, this_losses))) + '\n'
+                f.write(line)
+                
+        self.eval_losses = np.array(self.eval_losses)
+        np.save(os.path.join(self.result_save_root,'eval_losses.npy'), self.eval_losses)
+        
+        losses_item = np.mean(self.eval_losses, axis=0)
+        
+        
+        with open(os.path.join(self.result_save_root, 'eval_result.txt'), 'w') as f:
+            for metric, value in zip(metrics.keys(), losses_item):
+                f.write("{:>20}:{:<20}\n".format(metric, value))
+                
+        with open(os.path.join(self.result_save_root, 'eval_result.txt'), 'r') as f:
+            for line in f.readlines():
+                print(line)
+            
     def to_cuda(self):
         self.net = self.net.cuda()
         self.loss_function_mse = self.loss_function_mse.cuda()
