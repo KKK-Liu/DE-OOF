@@ -33,24 +33,24 @@ class OOF_dataset(Dataset):
         img_blurred = self.transforms(img_blurred)
         
         if self.type == 'eval':
-            return  transforms.Resize((256,256))(img_blurred),\
-                    transforms.Resize((128,128))(img_blurred),\
-                    transforms.Resize((64 ,64 ))(img_blurred),\
-                    transforms.Resize((32 ,32 ))(img_blurred),\
-                    transforms.Resize((256,256))(img_clear),\
-                    transforms.Resize((128,128))(img_clear),\
-                    transforms.Resize((64 ,64 ))(img_clear),\
-                    transforms.Resize((32 ,32 ))(img_clear),\
+            return  transforms.Resize((224,224))(img_blurred),\
+                    transforms.Resize((112,112))(img_blurred),\
+                    transforms.Resize((56 ,56 ))(img_blurred),\
+                    transforms.Resize((28 ,28 ))(img_blurred),\
+                    transforms.Resize((224,224))(img_clear),\
+                    transforms.Resize((112,112))(img_clear),\
+                    transforms.Resize((56 ,56 ))(img_clear),\
+                    transforms.Resize((28 ,28 ))(img_clear),\
                     self.image_names[index]
         else:
-            return  transforms.Resize((256,256))(img_blurred),\
-                    transforms.Resize((128,128))(img_blurred),\
-                    transforms.Resize((64 ,64 ))(img_blurred),\
-                    transforms.Resize((32 ,32 ))(img_blurred),\
-                    transforms.Resize((256,256))(img_clear),\
-                    transforms.Resize((128,128))(img_clear),\
-                    transforms.Resize((64 ,64 ))(img_clear),\
-                    transforms.Resize((32 ,32 ))(img_clear)
+            return  transforms.Resize((224,224))(img_blurred),\
+                    transforms.Resize((112,112))(img_blurred),\
+                    transforms.Resize((56 ,56 ))(img_blurred),\
+                    transforms.Resize((28 ,28 ))(img_blurred),\
+                    transforms.Resize((224,224))(img_clear),\
+                    transforms.Resize((112,112))(img_clear),\
+                    transforms.Resize((56 ,56 ))(img_clear),\
+                    transforms.Resize((28 ,28 ))(img_clear)
         
     def __len__(self):
         return self.len
