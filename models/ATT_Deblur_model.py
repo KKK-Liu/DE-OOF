@@ -375,7 +375,7 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
     def eval_visuals(self, metrics:dict):
         self.image_names += self.paths
         
-        for image_restored, image_sharp, name in zip(self.restored_images_1, self.sharp_images_1, self.paths):
+        for image_restored, image_sharp in zip(self.restored_images_1, self.sharp_images_1):
             this_losses = []
             for _, metric_function in metrics.items():
                 this_losses.append(metric_function(image_restored, image_sharp).data)
@@ -388,13 +388,13 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
             for this_losses, image_name in zip(self.eval_losses, self.image_names):
                 line = ','.join([image_name]+list(map(str, this_losses))) + '\n'
                 f.write(line)
-                
+
+
         self.eval_losses = np.array(self.eval_losses)
         np.save(os.path.join(self.result_save_root,'eval_losses.npy'), self.eval_losses)
         
         losses_item = np.mean(self.eval_losses, axis=0)
-        
-        
+
         with open(os.path.join(self.result_save_root, 'eval_result.txt'), 'w') as f:
             for metric, value in zip(metrics.keys(), losses_item):
                 f.write("{:>20}:{:<20}\n".format(metric, value))
