@@ -573,7 +573,7 @@ def psf_map_generate_zxy_positivez_real_one():
 
 def psf_map_generate_zxy_positivez_real():
     from itertools import product
-    real_z = np.linspace(31,63,33)
+    real_z = np.linspace(0,63,64)
     save_root = './plots_npy/color-real-3um/'
     os.makedirs(save_root,exist_ok=True)
     print('make diretory')
@@ -600,7 +600,60 @@ def psf_map_generate_zxy_positivez_real():
             
             np.save(file_name, zz)
             print(file_name)
+            
+def calculate(name,batch_data):
+        print(name,' start')
+        save_root = './plots_npy/color-real-3um/'
+        low = -5.25 * 10 **(-6)
+        high = 5.25 * 10 **(-6)
+        num = 101
+        x = np.linspace(low,high,num) 
+        y = np.linspace(low,high,num) 
+        
+        for item, (lam, name) in batch_data:
+            lam = lam * 10 ** (-9)
+            item_z = item * 10 **(-7)
+            z = np.ones(num) * item_z
+            zz = np.zeros((num,num))
+            
+            for i,j in product(range(num), range(num)):
+                zz[i,j] = hxzy(x[i],y[j],z[i], lam)
 
+            file_name = os.path.join(save_root, '{}-{:0>2}.npy'.format(name, int(item)))
+            
+            np.save(file_name, zz)
+            print(file_name)
+        print(name,' finish')
+        
+def psf_map_generate_zxy_positivez_real_multi_thread():
+    from itertools import product
+    from multiprocessing import Process
+    # from threading import Thread
+    NUM_OF_THREAD =12
+    
+    save_root = './plots_npy/color-real-3um/'
+    os.makedirs(save_root,exist_ok=True)
+    
+    print('make diretory')
+    
+    low = -5.25 * 10 **(-6)
+    high = 5.25 * 10 **(-6)
+    num = 101
+    x = np.linspace(low,high,num) 
+    y = np.linspace(low,high,num) 
+    # R:700.0, G:546.1, B:435.8 nm 
+    all_items = list(product(np.linspace(0,63,64),zip([700, 546.1, 435.8], ['R', 'G', 'B'])))
+    
+    step = int(len(all_items)/NUM_OF_THREAD)
+    
+    all_items_batches = [all_items[i:i+step] for i in range(0,len(all_items), step)]
+    print(len(all_items_batches),' batches')
+    
+    ts = [Process(target=calculate, args=(i, all_items_batches[i],)) for i in range(NUM_OF_THREAD)]
+    
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    
 
 def psf_show():
     root = './plots_npy/color-real-3um'
@@ -824,5 +877,7 @@ def nvidia_smi_test():
     print(lines)
     
     
-psf_map_generate_zxy_positivez_real()
+if __name__ == '__main__':
+# psf_map_generate_zxy_positivez_real()
+    psf_map_generate_zxy_positivez_real_multi_thread()
 # psf_show()
