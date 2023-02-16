@@ -15,12 +15,12 @@ parser.add_argument('--ckpt_save_path', type=str,default='./checkpoints/')
 parser.add_argument('--dry_run', action='store_true')
 parser.add_argument('--isTrain', default=True)
 ''' model related '''
-
+parser.add_argument('--level',type=int, default=3)
 ''' dataloader  '''
-parser.add_argument('--dataset_name', type=str, default='paired')
+parser.add_argument('--dataset_name', type=str, default='paired_4')
 parser.add_argument('--data_root', type=str, default='./data/CRC-224/CRC-01-31-16-20')
-parser.add_argument('--batch_size', type=int, default=32)
-parser.add_argument('--num_workers', type=int, default=8)
+parser.add_argument('--batch_size', type=int, default=16)
+parser.add_argument('--num_workers', type=int, default=15)
 parser.add_argument('--pin_memory', type=bool, default=True)
 
 
@@ -32,9 +32,9 @@ parser.add_argument('--logfilemode', type=str,default='w', help='mode of the log
 '''optimizer and scheduler related'''
 parser.add_argument('--optimizer', type=str, default='adam')
 parser.add_argument('--epoch', type=int, default=200)
-parser.add_argument('--lr', type=float, default=0.1)
+parser.add_argument('--lr', type=float, default=1e-5)
 parser.add_argument('--momentum', type=float, default=0.9)
-parser.add_argument('--weight_decay', type=float, default=5e-4)
+parser.add_argument('--weight_decay', type=float, default=5e-5)
 
 parser.add_argument('--scheduler', type=str, default='cosineannealinglr')
 parser.add_argument('--gamma', type=float, default=0.1)
@@ -42,8 +42,12 @@ parser.add_argument('--milestones', type=int, nargs='+',default=[40, 80, 120, 16
 parser.add_argument('--T_max', type=int, default=40)
 
 '''loss function lambda'''
-parser.add_argument('--lambda_CM',type=float, default=1.0)
-parser.add_argument('--lambda_RR',type=float, default=1.0)
+parser.add_argument('--lambda_CM',type=float, default=0.1)
+parser.add_argument('--lambda_RR',type=float, default=0.1)
+parser.add_argument('--lambda_level1',type=float, default=1/1)
+parser.add_argument('--lambda_level2',type=float, default=1/2)
+parser.add_argument('--lambda_level3',type=float, default=1/4)
+parser.add_argument('--lambda_level4',type=float, default=1/8)
 
 '''other options'''
 parser.add_argument('--fixseed', type=bool, default=True)

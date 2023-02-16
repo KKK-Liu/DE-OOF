@@ -7,10 +7,9 @@ from .ATT_Deblur_model import ATT_Deblur_Net
 
 
 
-class ATT_Deblur_Net_level1(ATT_Deblur_Net):
+class ATT_Deblur_Net_level4(ATT_Deblur_Net):
     def __init__(self, args) -> None:
-        super(ATT_Deblur_Net_level1, self).__init__()
-        ATT_Deblur_Net.__init__(args, level=4)
+        super(ATT_Deblur_Net_level4, self).__init__(args, level=4)
         
         if self.isTrain:
             self.loss_names += ['l1_1','l1_2','l1_3', 'l1_4','consistency_confidence','consistency']

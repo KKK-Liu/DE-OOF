@@ -79,7 +79,7 @@ class BaseModel(ABC):
             'scheduler': self.scheduler.state_dict(),
             'best_val_loss': self.best_valid_loss,
         }
-        save_file_name = 'valBest_{:.5f}_ckpt.pth.tar'.format(self.best_valid_loss)
+        save_file_name = 'val_best.pth.tar'
         torch.save(state,
             os.path.join(self.save_dir, save_file_name))
         

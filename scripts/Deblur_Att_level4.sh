@@ -1,1 +1,1 @@
-python pro.py --data_root ~/autodl-tmp/data/CRC-02-01-22-27 --name ATT_Deblur_Net_level4 --model ATT_Deblur_Net_level4 --dataset_name paired_4 --lr 1e-4 --batch_size 16 --num_workers 12 --gamma 0.1 --gpu_id 3
+python pro.py --data_root ~/autodl-tmp/data/CRC-02-01-22-27 --name ATT_Deblur_Net_all_level4 --level 4 --model ATT_Deblur_Net_all_level --gpu_id 3

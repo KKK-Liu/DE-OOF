@@ -3,7 +3,7 @@ import torch.utils.data
 import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import MultiStepLR
-from .base_model import BaseModel
+from .old.base_model import BaseModel
 
 
 from torch.nn.init import xavier_normal_ , kaiming_normal_

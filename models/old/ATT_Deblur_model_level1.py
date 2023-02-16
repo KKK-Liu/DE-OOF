@@ -8,8 +8,7 @@ from .ATT_Deblur_model import ATT_Deblur_Net
 
 class ATT_Deblur_Net_level1(ATT_Deblur_Net):
     def __init__(self, args) -> None:
-        super(ATT_Deblur_Net_level1, self).__init__()
-        ATT_Deblur_Net.__init__(args, level=1)
+        super(ATT_Deblur_Net_level1, self).__init__(args, level=1)
         
         if self.isTrain:
             self.loss_names += ['l1_1']

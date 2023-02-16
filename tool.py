@@ -573,7 +573,7 @@ def psf_map_generate_zxy_positivez_real_one():
 
 def psf_map_generate_zxy_positivez_real():
     from itertools import product
-    real_z = np.linspace(0,30,31)
+    real_z = np.linspace(31,63,33)
     save_root = './plots_npy/color-real-3um/'
     os.makedirs(save_root,exist_ok=True)
     print('make diretory')
@@ -639,11 +639,11 @@ def blur_one_image_RGB_real(ori_img=None):
     '''
     # if ori_img != None:
     img = np.array(ori_img)
-    print(img.shape)
-    img = cv2.resize(img, (224,224))
-    print(img.shape)
+    # print(img.shape)
+    # img = cv2.resize(img, (224,224))
+    # print(img.shape)
     
-    print(1)
+    # print(1)
         
     kernel_mapping = np.random.randint(low = 0, high = 100, size=(224,224))
     kernel_mapping = np.array(kernel_mapping, dtype=np.uint8)
@@ -656,10 +656,10 @@ def blur_one_image_RGB_real(ori_img=None):
     
     kernel_mapping_smoothed = kernel_mapping_smoothed - np.min(kernel_mapping_smoothed)
     
-    tmp_m = 30 - np.max(kernel_mapping_smoothed)
+    tmp_m = 50 - np.max(kernel_mapping_smoothed)
     
-    # for i in range(tmp_m):
-    #     kernel_mapping_smoothed = kernel_mapping_smoothed + np.random.choice([0,1],p=[0.3,0.7])
+    for i in range(tmp_m):
+        kernel_mapping_smoothed = kernel_mapping_smoothed + np.random.choice([0,1],p=[0.3,0.7])
     kernel_mapping_smoothed = np.abs(kernel_mapping_smoothed) * 5
     
     plt.subplot(121)
@@ -719,6 +719,7 @@ def make_zip(source_dir:str, output_filename):
         '.git',
         'TmpImages',
         '__pycache__',
+        'checkpoints',
     ]
     
     # ignored_dirlist = [
@@ -766,16 +767,12 @@ def oswalk_test():
     
 def mse2psnr():
     from math import log10
-    mse = 3.74 * 1e-3
+    mse = 0.0059
     
     psnr = -10 * log10(mse)
     
     print('mse:{}\npsnr:{}'.format(mse, psnr))
 
-def srnatts_test():
-    from models.SRNATTS_model import SRNATTS_Net
-    
-    model = SRNATTS_Net()
 
 def wandb_test():
     import argparse
@@ -821,46 +818,11 @@ def save_result_test():
 def gray_image_generation():
     img = np.ones((200,400,3),dtype=np.uint8) * 128
     cv2.imwrite('./TmpImages/gray.png', img)
-gray_image_generation()
-
-# make_zip("D:/desktop/de-OOF", 'D:/desktop/code.zip')
-# make_zip('D:/desktop\\de-OOF', 'D:/desktop/code.zip')
-# save_result_test()
-# mse2psnr()
-# wandb_test()
-# oswalk_test()
-# psf_map_generate()
-
-# print(hxzy(0.1,0,0))
-# psf_map_generate_z0xy()
-# psf_map_generate_z0xy_3d()
-# psf_map_generate_x0yz()
-# load_npy_and_show()
-# psf_map_generate_x4zy()
-# psf_line_generate()
-# psf_map_generate_z0xy()
-# psf_map_generate_zxy_3d()
-# psf_map_generate_zxy_manyz()
-# psf_map_generate_zxy_load_many()
-# psf_map_generate_zxy_positivez()
-# psf_map_generate_zxy_load_positivez()
-# psf_map_generate_zxy_load_positivez_and_downSample()
-
-# blur_with_psf_kernel()
-
-# psf_map_generate_zxy_positivez()
-
-# psf_map_generate_zxy_load_positivez()
-# psf_map_generate_zxy_positivez_show()
-# flo()
-# psf_map_generate_zxy_positivez_real()
-
+    
+def nvidia_smi_test():
+    lines = os.popen('nvidia-smi').read().count('0%')
+    print(lines)
+    
+    
+psf_map_generate_zxy_positivez_real()
 # psf_show()
-
-# img, k = blur_one_image_RGB_real(cv2.imread('./TmpImages/Sharp.png'))
-
-# cv2.imwrite('./TmpImages/blurred.png', img)
-# cv2.imwrite('./TmpImages/k.png', k/np.max(k)*255)
-# cv2.imwrite('./TmpImages/k-R.png', 255 - k/np.max(k)*255)
-
-# nan_tensor_test()

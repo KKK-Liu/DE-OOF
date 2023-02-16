@@ -412,6 +412,67 @@ def blur_one_image_RGB_real(ori_img):
     
     return result_image
 
+def blur_one_image_RGB_real_real(ori_img):
+    '''
+        generate the mapping relation from pixel to kernel
+    '''
+    img = np.array(ori_img)
+
+        
+    kernel_mapping = np.random.randint(low = 0, high = 70, size=(224,224))
+    kernel_mapping = np.array(kernel_mapping, dtype=np.uint8)
+    
+    kernel_mapping_smoothed = kernel_mapping.copy()
+    kernel_mapping_smoothed = cv2.GaussianBlur(kernel_mapping, sigmaX=10, ksize=(0,0))
+    kernel_mapping_smoothed = cv2.GaussianBlur(kernel_mapping_smoothed, sigmaX=8, ksize=(0,0))
+    
+    kernel_mapping_smoothed = np.array(kernel_mapping_smoothed, dtype=np.int8)
+    
+    kernel_mapping_smoothed = kernel_mapping_smoothed - np.min(kernel_mapping_smoothed)
+    
+    tmp_m = 30 - np.max(kernel_mapping_smoothed)
+    
+    for i in range(tmp_m):
+        kernel_mapping_smoothed = kernel_mapping_smoothed + np.random.choice([0,1],p=[0.2,0.8])
+    kernel_mapping_smoothed = np.abs(kernel_mapping_smoothed)
+    
+    plt.subplot(131)
+    plt.imshow(kernel_mapping_smoothed/np.max(kernel_mapping_smoothed))
+    # plt.show()
+    # exit()
+    
+    kernel_mapping_smoothed = np.dstack([kernel_mapping_smoothed, kernel_mapping_smoothed, kernel_mapping_smoothed])
+    
+    result_image = np.zeros(img.shape, dtype=np.uint8)
+    
+    for i, name in zip(range(3), ['B', 'G', 'R']):
+        z_min = np.min(kernel_mapping_smoothed[:,:,i])
+        z_max = np.max(kernel_mapping_smoothed[:,:,i])
+        
+        for j in range(z_min, z_max + 1):
+
+            # print("j:{}".format(j))
+            kernel = np.load('./plots_npy/color-real-3um/{}-{:0>2}.npy'.format(name, j))
+            
+            kernel = kernel/np.sum(kernel)
+            kernel = cv2.Mat(kernel*255)
+            kernel = cv2.resize(kernel,(21,21))
+            kernel = kernel/np.sum(kernel)
+            
+            blurred_one_channel = cv2.filter2D(img[:,:,i],ddepth=-1, kernel=kernel)
+            blurred_one_channel = np.array(blurred_one_channel)
+            
+            result_image[kernel_mapping_smoothed[:,:,i]==j, i] = blurred_one_channel[kernel_mapping_smoothed[:,:,i]==j]
+    result_image = np.array(result_image, dtype=np.uint8)
+    
+    plt.subplot(132)
+    plt.imshow(result_image)
+    plt.subplot(133)
+    plt.imshow(ori_img)
+    plt.show()
+    
+    return result_image, kernel_mapping_smoothed
+
 def make_dataset_with_random_spf_advanced_multi_real():
     import threading
     
@@ -463,7 +524,8 @@ if __name__ == '__main__':
     # img = cv2.imread('./data/CRC-224/raw/ADI-TCGA-AAICEQFN.png')
     # blur_one_image(img)
     # make_dataset_with_random_spf_advanced()
-    make_dataset_with_random_spf_advanced_multi_real()
+    # make_dataset_with_random_spf_advanced_multi_real()
+    blur_one_image_RGB_real_real(cv2.imread('./data/CRC-224/raw/TUM-TCGA-YYKLKLPC.png'))
     # blur_one_image()
     # vis_kernel_mapping_smoothed()
     # raw = np.zeros((3,3,2))
