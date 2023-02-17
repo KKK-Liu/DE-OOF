@@ -65,7 +65,6 @@ def eval(root_sharp:str, root_blurred:str):
     save_root = os.path.join('./results', time.strftime('%m-%d-%H-%M', time.localtime()))
     
     os.makedirs(save_root, exist_ok=True)
-
     with open(os.path.join(save_root, 'metric values.csv'), 'w') as f:
         line = ','.join(['image name']+list(metrics.keys()))+'\n'
         f.write(line)
@@ -80,7 +79,6 @@ def eval(root_sharp:str, root_blurred:str):
             
             line = ','.join([image_name]+list(map(str, this_losses)))+'\n'
             f.write(line)
-
     losses = np.array(losses)
     np.save(os.path.join(save_root, 'losses.npy'),losses)
     

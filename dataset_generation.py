@@ -436,8 +436,8 @@ def blur_one_image_RGB_real_real(ori_img):
         kernel_mapping_smoothed = kernel_mapping_smoothed + np.random.choice([0,1],p=[0.2,0.8])
     kernel_mapping_smoothed = np.abs(kernel_mapping_smoothed)
     
-    plt.subplot(131)
-    plt.imshow(kernel_mapping_smoothed/np.max(kernel_mapping_smoothed))
+    # plt.subplot(131)
+    # plt.imshow(kernel_mapping_smoothed/np.max(kernel_mapping_smoothed))
     # plt.show()
     # exit()
     
@@ -465,13 +465,13 @@ def blur_one_image_RGB_real_real(ori_img):
             result_image[kernel_mapping_smoothed[:,:,i]==j, i] = blurred_one_channel[kernel_mapping_smoothed[:,:,i]==j]
     result_image = np.array(result_image, dtype=np.uint8)
     
-    plt.subplot(132)
-    plt.imshow(result_image)
-    plt.subplot(133)
-    plt.imshow(ori_img)
-    plt.show()
+    # plt.subplot(132)
+    # plt.imshow(result_image)
+    # plt.subplot(133)
+    # plt.imshow(ori_img)
+    # plt.show()
     
-    return result_image, kernel_mapping_smoothed
+    return result_image
 
 def make_dataset_with_random_spf_advanced_multi_real():
     import threading
@@ -497,7 +497,7 @@ def make_dataset_with_random_spf_advanced_multi_real():
             
         for image_name in image_names:
             img = cv2.imread(os.path.join(data_root, image_name))
-            blured_img = blur_one_image_RGB_real(img)
+            blured_img = blur_one_image_RGB_real_real(img)
             
             cv2.imwrite(os.path.join(root_clear, image_name), img)
             cv2.imwrite(os.path.join(root_blurred, image_name), blured_img)
@@ -524,8 +524,8 @@ if __name__ == '__main__':
     # img = cv2.imread('./data/CRC-224/raw/ADI-TCGA-AAICEQFN.png')
     # blur_one_image(img)
     # make_dataset_with_random_spf_advanced()
-    # make_dataset_with_random_spf_advanced_multi_real()
-    blur_one_image_RGB_real_real(cv2.imread('./data/CRC-224/raw/TUM-TCGA-YYKLKLPC.png'))
+    make_dataset_with_random_spf_advanced_multi_real()
+    # blur_one_image_RGB_real_real(cv2.imread('./data/CRC-224/raw/TUM-TCGA-YYKLKLPC.png'))
     # blur_one_image()
     # vis_kernel_mapping_smoothed()
     # raw = np.zeros((3,3,2))
