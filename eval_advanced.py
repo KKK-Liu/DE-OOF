@@ -57,12 +57,13 @@ metrics = {
     # 'PieAPP':PieAPP(),
 }
 
-def eval(root_sharp:str, root_blurred:str):
+def eval(args):
     losses = []
-    
+    root_sharp:str = args.root_sharp
+    root_blurred:str = args.root_blurred
     t = ToTensor()
     
-    save_root = os.path.join('./results', time.strftime('%m-%d-%H-%M', time.localtime()))
+    save_root = os.path.join('./results',args.name+' '+time.strftime('%m-%d-%H-%M', time.localtime()))
     
     os.makedirs(save_root, exist_ok=True)
     with open(os.path.join(save_root, 'metric values.csv'), 'w') as f:

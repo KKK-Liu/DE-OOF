@@ -820,7 +820,7 @@ def oswalk_test():
     
 def mse2psnr():
     from math import log10
-    mse = 0.0060
+    mse = 0.0008338
     
     psnr = -10 * log10(mse)
     
@@ -887,6 +887,6 @@ def rand1_test():
 if __name__ == '__main__':
 # psf_map_generate_zxy_positivez_real()
     # psf_map_generate_zxy_positivez_real_multi_thread()
-    # mse2psnr()
-    rand1_test()
+    mse2psnr()
+    # rand1_test()
 # psf_show()
