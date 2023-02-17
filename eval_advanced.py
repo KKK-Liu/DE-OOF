@@ -50,11 +50,9 @@ metrics = {
     'vsi':vsi,
     
     # metrics below are time-consuming
-    # 'StyleLoss':StyleLoss(),
-    # 'ContentLoss':ContentLoss(),
-    # 'LPIPS':LPIPS(),
-    # 'DISTS':DISTS(),
-    # 'PieAPP':PieAPP(),
+    'LPIPS':LPIPS(),
+    'DISTS':DISTS(),
+    'PieAPP':PieAPP(),
 }
 
 def eval(args):
@@ -91,6 +89,15 @@ def eval(args):
         for metric, value in zip(metrics.keys(), losses_item):
             f.write("{:>20}:{:<20}\n".format(metric, value))
     
+    with open(os.path.join(save_root, 'result.csv'), 'w') as f:
+        f.write("blur root:{}\n".format(root_blurred))
+        f.write("sharp root:{}\n".format(root_sharp))
+        line1 = ','.join(list(metrics.keys()))
+        line2 = ','.join(list(map(str,losses_item)))
+        
+        f.write(line1+'\n')
+        f.write(line2+'\n')
+            
     print('Results are saved in {}'.format(os.path.join(save_root, 'result.txt')))
     
     with open(os.path.join(save_root, 'result.txt'), 'r') as f:

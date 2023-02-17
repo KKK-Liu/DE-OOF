@@ -820,11 +820,12 @@ def oswalk_test():
     
 def mse2psnr():
     from math import log10
-    mse = 0.0008338
+    mse = float(input('MSE:'))
+    # mse = 0.0008338
     
     psnr = -10 * log10(mse)
     
-    print('mse:{}\npsnr:{}'.format(mse, psnr))
+    print('psnr:{}'.format( psnr))
 
 
 def wandb_test():
