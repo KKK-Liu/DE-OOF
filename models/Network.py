@@ -162,7 +162,7 @@ class BasicBlock(nn.Module):
         else:
             self.last_activation = None
         self.scaling_factor = scaling_factor
-    def forward(self , x ):
+    def forward(self , x):
         residual = x 
         if self.downsample is not None:
             residual = self.downsample( residual )
@@ -210,7 +210,7 @@ class DBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride, output_padding):
         super(type(self), self).__init__()
         resblock_list = []
-        for i in range(1):
+        for i in range(3):
             resblock_list.append(resblock(in_channels))
         self.resblock_stack = nn.Sequential(*resblock_list)
         self.deconv = deconv5x5_relu(
@@ -226,7 +226,7 @@ class OutBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(type(self), self).__init__()
         resblock_list = []
-        for i in range(1):
+        for i in range(3):
             resblock_list.append(resblock(in_channels))
         self.resblock_stack = nn.Sequential(*resblock_list)
         self.conv = conv(in_channels, out_channels, 5, 1, 2, activation_fn=None)
@@ -238,13 +238,15 @@ class OutBlock(nn.Module):
 
 
 class Net(nn.Module):
-    def __init__(self,level = 3, upsample_fn=partial(torch.nn.functional.interpolate, mode='bilinear'), xavier_init_all=True):
+    def __init__(self,level = 3,style = 1, upsample_fn=partial(torch.nn.functional.interpolate, mode='bilinear'), xavier_init_all=True):
         super(type(self), self).__init__()
         self.level = level
+        self.style = style
         self.upsample_fn = upsample_fn
         self.inblock = EBlock(3 + 3, 32, 1)
         self.eblock1 = EBlock(32, 64, 2)
         self.eblock2 = EBlock(64, 128, 2)
+        
         self.convlstm = CLSTM_cell(128, 128, 5)
         
         self.dblock1_content = DBlock(128, 64, 2, 1)
@@ -255,6 +257,8 @@ class Net(nn.Module):
         self.dblock2_attention = DBlock(64, 32, 2, 1)
         self.outblock_attention = OutBlock(32, 3)
 
+        self.mask_weight = torch.nn.Parameter(torch.zeros((1),dtype=torch.float32,requires_grad=True))
+        
         self.input_padding = None
         # if xavier_init_all:
         #     for name, m in self.named_modules():
@@ -278,11 +282,18 @@ class Net(nn.Module):
         d3_attention = self.outblock_attention(d32_attention + e32)
         
         d3_content = torch.sigmoid(d3_content)
-        d3_attention = torch.nn.functional.softmax(d3_attention, dim=1)
+        # d3_attention = torch.nn.functional.softmax(d3_attention, dim=1)
+        d3_attention = torch.tanh(d3_attention)
         
         xs = list(torch.split(x, 3, 1))
-        
-        d3 = d3_content * d3_attention + xs[0] * (1 - d3_attention)
+        if self.style == 1:
+            d3 = d3_content * d3_attention * self.mask_weight+ xs[0] *(1-self.mask_weight)
+        elif self.style == 2:
+            d3 = d3_content * d3_attention + xs[0] * (1 - d3_attention)
+        elif self.style == 3:
+            d3 = d3_content * d3_attention + xs[0]
+        elif self.style == 4:
+            d3 = d3_content
 
         return d3, h, c, d3_attention
 
@@ -291,7 +302,7 @@ class Net(nn.Module):
             h, c = self.convlstm.init_hidden(b1.shape[0], (b1.shape[-2]//4, b1.shape[-1]//4))
 
             i1, h, c, a1 = self.forward_step(
-                torch.cat([b1, b1], 1), (h, c))
+                torch.cat([b1, torch.zeros_like(b1)], 1), (h, c))
 
             i2 = torch.zeros(b2.shape).cuda()
             a2 = torch.zeros(b2.shape).cuda()
@@ -306,7 +317,7 @@ class Net(nn.Module):
             h, c = self.convlstm.init_hidden(b2.shape[0], (b2.shape[-2]//4, b2.shape[-1]//4))
 
             i2, h, c, a2 = self.forward_step(
-                torch.cat([b2, b2], 1), (h, c))
+                torch.cat([b2, torch.zeros_like(b2)], 1), (h, c))
 
             c = self.upsample_fn(c, scale_factor=2)
             h = self.upsample_fn(h, scale_factor=2)
@@ -323,7 +334,7 @@ class Net(nn.Module):
             h, c = self.convlstm.init_hidden(b3.shape[0], (b3.shape[-2]//4, b3.shape[-1]//4))
 
             i3, h, c, a3 = self.forward_step(
-                torch.cat([b3, b3], 1), (h, c))
+                torch.cat([b3, torch.zeros_like(b3)], 1), (h, c))
 
             c = self.upsample_fn(c, scale_factor=2)
             h = self.upsample_fn(h, scale_factor=2)
@@ -342,7 +353,7 @@ class Net(nn.Module):
             h, c = self.convlstm.init_hidden(b4.shape[0], (b4.shape[-2]//4, b4.shape[-1]//4))
         
             i4, h, c, a4 = self.forward_step(
-                torch.cat([b4, b4], 1), (h, c))
+                torch.cat([b4, torch.zeros_like(b4)], 1), (h, c))
             
             c = self.upsample_fn(c, scale_factor=2)
             h = self.upsample_fn(h, scale_factor=2)

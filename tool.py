@@ -820,7 +820,7 @@ def oswalk_test():
     
 def mse2psnr():
     from math import log10
-    mse = 0.0059
+    mse = 0.0060
     
     psnr = -10 * log10(mse)
     
@@ -877,7 +877,16 @@ def nvidia_smi_test():
     print(lines)
     
     
+def rand1_test():
+    import torch
+    
+    t = torch.rand((1),dtype=torch.float32,requires_grad=True)
+    print(t.shape)
+    
+    
 if __name__ == '__main__':
 # psf_map_generate_zxy_positivez_real()
-    psf_map_generate_zxy_positivez_real_multi_thread()
+    # psf_map_generate_zxy_positivez_real_multi_thread()
+    # mse2psnr()
+    rand1_test()
 # psf_show()

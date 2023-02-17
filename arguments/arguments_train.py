@@ -16,6 +16,7 @@ parser.add_argument('--dry_run', action='store_true')
 parser.add_argument('--isTrain', default=True)
 ''' model related '''
 parser.add_argument('--level',type=int, default=3)
+parser.add_argument('--style',type=int, default=1)
 ''' dataloader  '''
 parser.add_argument('--dataset_name', type=str, default='paired_4')
 parser.add_argument('--data_root', type=str, default='./data/CRC-224/CRC-01-31-16-20')

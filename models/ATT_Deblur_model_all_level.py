@@ -19,7 +19,7 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
         super(ATT_Deblur_Net, self).__init__()
         BaseModel.__init__(self, args)
         self.level = args.level
-        self.net = Net(level = args.level)
+        self.net = Net(level = args.level, style=args.style)
         self.nets.append(self.net)
         
         self.isTrain = self.args.isTrain
@@ -30,7 +30,7 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
                     lr = args.lr,
                     weight_decay = args.weight_decay
                 )
-            elif args.optimiazae == 'sgd':
+            elif args.optimizer == 'sgd':
                 self.optimizer =optim.SGD(
                     self.net.parameters(), 
                     lr=args.lr,

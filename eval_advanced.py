@@ -18,15 +18,15 @@ parser = argparse.ArgumentParser()
 
 ''' run '''
 parser.add_argument('--name',type=str, default='name')
-parser.add_argument('--choice',type=int, default=3,help='0-eval,1-inferrence and save, 2-inferrence and eval, 3-inferrence and eval and save')
+parser.add_argument('--choice',type=int, default=0,help='0-eval,1-inferrence and save, 2-inferrence and eval, 3-inferrence and eval and save')
 ''' dataloader '''
 parser.add_argument('--dataset_name', type=str, default='paired_4')
 parser.add_argument('--data_root',type=str, default='./data/CRC-224/CRC-02-01-22-27')
 parser.add_argument('--batch_size',type=int, default=4)
 parser.add_argument('--num_workers',type=int, default=8)
 
-parser.add_argument('--sharp_root',type=str, default='')
-parser.add_argument('--blurred_root',type=str, default='')
+parser.add_argument('--sharp_root',type=str, default='./data/CRC-224/CRC-02-16-17-08/val-clear')
+parser.add_argument('--blurred_root',type=str, default='./data/CRC-224/CRC-02-16-17-08/val-blurred')
 
 ''' model '''
 parser.add_argument('--model', type=str,default='ATT_Deblur_Net_level1')
@@ -75,7 +75,7 @@ def eval(root_sharp:str, root_blurred:str):
             
             this_losses = []
             for _, metric_function in metrics.items():
-                this_losses.append(metric_function(img_blurred, img_sharp).data)
+                this_losses.append(metric_function(img_blurred, img_sharp).cpu().data)
             losses.append(this_losses)
             
             line = ','.join([image_name]+list(map(str, this_losses)))+'\n'
