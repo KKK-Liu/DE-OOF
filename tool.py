@@ -884,10 +884,26 @@ def rand1_test():
     t = torch.rand((1),dtype=torch.float32,requires_grad=True)
     print(t.shape)
     
+def generate_datalist():
+    with open('./datalist_gopro.txt', 'w') as f:
+        for image_name in os.listdir("D:/desktop/GOPRO_Large/train/4096images/sharp"):
+            f.write('/root/autodl-tmp/data/GOPRO_Large/train/4096images/sharp/{} '.format(image_name))
+            f.write('/root/autodl-tmp/data/GOPRO_Large/train/4096images/blur_gamma/{}\n'.format(image_name))
+            
+    with open('./train_gopro_gamma.list', 'w') as f:
+        for image_name in os.listdir("D:/desktop/GOPRO_Large/train/4096images/sharp"):
+            f.write('/root/autodl-tmp/data/GOPRO_Large/train/4096images/blur_gamma/{} '.format(image_name))
+            f.write('/root/autodl-tmp/data/GOPRO_Large/train/4096images/sharp/{}\n'.format(image_name))
+            
+    with open('./val_gopro_gamma.list', 'w') as f:
+        for image_name in os.listdir("D:/desktop/GOPRO_Large/test/1024images/sharp"):
+            f.write('/root/autodl-tmp/data/GOPRO_Large/test/1024images/blur_gamma/{} '.format(image_name))
+            f.write('/root/autodl-tmp/data/GOPRO_Large/test/1024images/sharp/{}\n'.format(image_name))
+                                     
+def r():
+    d = 1
+    print(np.pi * d * d /4)
     
 if __name__ == '__main__':
-# psf_map_generate_zxy_positivez_real()
-    # psf_map_generate_zxy_positivez_real_multi_thread()
-    mse2psnr()
-    # rand1_test()
-# psf_show()
+    # generate_datalist()
+    r()

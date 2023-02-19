@@ -10,13 +10,13 @@ parser = argparse.ArgumentParser()
 '''the settings below are used for autodl'''
 '''run related'''
 parser.add_argument('--name', type=str,default='baseline_unet', help='name of this run')
-parser.add_argument('--model', type=str, default='U_Net')
+parser.add_argument('--model', type=str, default='ATT_Deblur_model_all_level')
 parser.add_argument('--ckpt_save_path', type=str,default='./checkpoints/')
 parser.add_argument('--dry_run', action='store_true')
 parser.add_argument('--isTrain', default=True)
 ''' model related '''
 parser.add_argument('--level',type=int, default=3)
-parser.add_argument('--style',type=int, default=1)
+parser.add_argument('--style',type=int, default=2)
 ''' dataloader  '''
 parser.add_argument('--dataset_name', type=str, default='paired_4')
 parser.add_argument('--data_root', type=str, default='/root/autodl-tmp/data/CRC-02-16-17-08')
@@ -31,13 +31,13 @@ parser.add_argument('--logfilemode', type=str,default='w', help='mode of the log
 
 
 '''optimizer and scheduler related'''
-parser.add_argument('--optimizer', type=str, default='adam')
+parser.add_argument('--optimizer', type=str, default='sgd')
 parser.add_argument('--epoch', type=int, default=200)
 parser.add_argument('--lr', type=float, default=1e-5)
 parser.add_argument('--momentum', type=float, default=0.9)
-parser.add_argument('--weight_decay', type=float, default=0.0)
+parser.add_argument('--weight_decay', type=float, default=1e-5)
 
-parser.add_argument('--scheduler', type=str, default='cosineannealinglr')
+parser.add_argument('--scheduler', type=str, default='constantlr')
 parser.add_argument('--gamma', type=float, default=0.1)
 parser.add_argument('--milestones', type=int, nargs='+',default=[40, 80, 120, 160])
 parser.add_argument('--T_max', type=int, default=40)

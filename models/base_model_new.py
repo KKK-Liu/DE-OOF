@@ -62,7 +62,7 @@ class BaseModel(ABC):
                 net.eval()
             
     def get_log_message(self):
-        self.log_msg = 'Train loss:{:.4f}, Valid loss:{:.4f}, Best valid loss:{:.4f}'.format(
+        self.log_msg = 'Train loss:{:.8f}, Valid loss:{:.8f}, Best valid loss:{:.8f}'.format(
             self.meters['train_loss_all'].avg,
             self.meters['valid_loss_all'].avg,
             self.best_valid_loss

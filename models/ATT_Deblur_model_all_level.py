@@ -37,7 +37,7 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
                     momentum=args.momentum, 
                     nesterov=True, 
                     weight_decay=args.weight_decay)
-            
+            # optim.NAdam
             if args.scheduler == 'multisteplr':
                 self.scheduler = MultiStepLR(self.optimizer, args.milestones, args.gamma)
             elif args.scheduler == 'constantlr':

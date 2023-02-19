@@ -15,7 +15,7 @@ class CLSTM_cell(nn.Module):
       num_features: int thats the num of channels of the states, like hidden_size
       
     """
-    def __init__(self, input_chans, num_features, filter_size ):
+    def __init__(self, input_chans, num_features, filter_size):
         super(CLSTM_cell, self).__init__()
         
         #self.shape = shape#H,W
@@ -45,7 +45,7 @@ class CLSTM_cell(nn.Module):
         return next_h, next_c
 
     def init_hidden(self,batch_size,shape):
-        return (torch.zeros(batch_size,self.num_features,shape[0],shape[1]).cuda() , torch.zeros(batch_size,self.num_features,shape[0],shape[1]).cuda())
+        return (torch.zeros(batch_size,self.num_features,shape[0],shape[1]).cuda(non_blocking=True) , torch.zeros(batch_size,self.num_features,shape[0],shape[1]).cuda(non_blocking=True))
         # return (torch.zeros(batch_size,self.num_features,shape[0],shape[1]) , torch.zeros(batch_size,self.num_features,shape[0],shape[1]))
 
 def get_weight_init_fn(activation_fn):
