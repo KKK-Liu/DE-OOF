@@ -238,10 +238,12 @@ class OutBlock(nn.Module):
 
 
 class Net(nn.Module):
-    def __init__(self,level = 3,style = 1, upsample_fn=partial(torch.nn.functional.interpolate, mode='bilinear'), xavier_init_all=True):
+    def __init__(self,level = 3,style = 1, mean_shift = True, range_of_image = 1.0,upsample_fn=partial(torch.nn.functional.interpolate, mode='bilinear'), xavier_init_all=True):
         super(type(self), self).__init__()
         self.level = level
         self.style = style
+        self.mean_shift = mean_shift
+        self.range_of_image = range_of_image
         self.upsample_fn = upsample_fn
         self.inblock = EBlock(3 + 3, 32, 1)
         self.eblock1 = EBlock(32, 64, 2)
@@ -268,6 +270,7 @@ class Net(nn.Module):
         #             print(name)
 
     def forward_step(self, x, hidden_state):
+        
         e32 = self.inblock(x)
         e64 = self.eblock1(e32)
         e128 = self.eblock2(e64)
@@ -298,6 +301,17 @@ class Net(nn.Module):
         return d3, h, c, d3_attention
 
     def forward(self, b1, b2, b3, b4):
+        if self.mean_shift:
+            b1 = b1 - 0.5
+            b2 = b2 - 0.5
+            b3 = b3 - 0.5
+            b4 = b4 - 0.5
+            
+        b1 = b1 * self.range_of_image
+        b2 = b2 * self.range_of_image
+        b3 = b3 * self.range_of_image
+        b4 = b4 * self.range_of_image
+        
         if self.level == 1:
             h, c = self.convlstm.init_hidden(b1.shape[0], (b1.shape[-2]//4, b1.shape[-1]//4))
 
@@ -370,5 +384,16 @@ class Net(nn.Module):
             h = self.upsample_fn(h, scale_factor=2)
             i1, h, c, a1 = self.forward_step(
                 torch.cat([b1, self.upsample_fn(i2, scale_factor=2)], 1), (h, c))
+        
+        i1 = i1 / self.range_of_image
+        i2 = i2 / self.range_of_image
+        i3 = i3 / self.range_of_image
+        i4 = i4 / self.range_of_image
+        
+        if self.mean_shift:
+            i1 = i1 + 0.5
+            i2 = i2 + 0.5
+            i3 = i3 + 0.5
+            i4 = i4 + 0.5
             
         return i1, i2, i3, i4, a1, a2, a3, a4

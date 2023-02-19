@@ -19,7 +19,7 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
         super(ATT_Deblur_Net, self).__init__()
         BaseModel.__init__(self, args)
         self.level = args.level
-        self.net = Net(level = args.level, style=args.style)
+        self.net = Net(level = args.level, style=args.style, mean_shift = args.mean_shift, range_of_image = args.range_of_image)
         self.nets.append(self.net)
         
         self.isTrain = self.args.isTrain
@@ -79,6 +79,11 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
         with torch.no_grad():
             with autocast():
                 self.forward()
+                
+        self.restored_images_1 = self.restored_images_1.clamp(0,1)
+        self.restored_images_2 = self.restored_images_2.clamp(0,1)
+        self.restored_images_3 = self.restored_images_3.clamp(0,1)
+        self.restored_images_4 = self.restored_images_4.clamp(0,1)
                 
     def save_visuals(self):
         for visual_name in self.visual_names:

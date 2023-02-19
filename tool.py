@@ -821,7 +821,7 @@ def oswalk_test():
 def mse2psnr():
     from math import log10
     # mse = float(input('MSE:'))
-    mse = 0.0007515
+    mse = 0.0003782
     
     psnr = -10 * log10(mse)
     
@@ -904,6 +904,16 @@ def r():
     d = 1
     print(np.pi * d * d /4)
     
+def clamp_test():
+    import torch
+    
+    t = torch.rand((3,3))*10
+    print(t)
+    t = t.clamp(2,3)
+    print(t)
+    
 if __name__ == '__main__':
     # generate_datalist()
-    r()
+    # r()
+    # mse2psnr()
+    clamp_test()
