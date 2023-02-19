@@ -17,7 +17,7 @@ import argparse
 parser = argparse.ArgumentParser()
 
 ''' run '''
-parser.add_argument('--name',type=str, default='name')
+parser.add_argument('--name',type=str, default='BeforeRestoration')
 parser.add_argument('--choice',type=int, default=0,help='0-eval,1-inferrence and save, 2-inferrence and eval, 3-inferrence and eval and save')
 ''' dataloader '''
 parser.add_argument('--dataset_name', type=str, default='paired_4')
@@ -25,8 +25,8 @@ parser.add_argument('--data_root',type=str, default='./data/CRC-224/CRC-02-01-22
 parser.add_argument('--batch_size',type=int, default=4)
 parser.add_argument('--num_workers',type=int, default=8)
 
-parser.add_argument('--sharp_root',type=str, default='./data/CRC-224/CRC-02-16-17-08/val-clear')
-parser.add_argument('--blurred_root',type=str, default='./data/CRC-224/CRC-02-16-17-08/val-blurred')
+parser.add_argument('--root_sharp',type=str, default='./data/CRC-224/CRC-02-16-17-08/val-clear')
+parser.add_argument('--root_blurred',type=str, default='./data/CRC-224/CRC-02-16-17-08/val-blurred')
 
 ''' model '''
 parser.add_argument('--model', type=str,default='ATT_Deblur_Net_level1')
@@ -61,7 +61,7 @@ def eval(args):
     root_blurred:str = args.root_blurred
     t = ToTensor()
     
-    save_root = os.path.join('./results',args.name+' '+time.strftime('%m-%d-%H-%M', time.localtime()))
+    save_root = os.path.join('./results',args.name)
     
     os.makedirs(save_root, exist_ok=True)
     with open(os.path.join(save_root, 'metric values.csv'), 'w') as f:
@@ -130,7 +130,7 @@ def inferrence_save_and_eval(args):
             
 def main():
     args = parser.parse_args()
-    args.name = args.name + time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())
+    args.name = args.name +' '+ time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())
     args.result_save_root = os.path.join(args.result_save_root, args.name)
     os.makedirs(args.result_save_root, exist_ok=True)
     
@@ -142,7 +142,7 @@ def main():
     '''
     
     if args.choice == 0:
-        eval(args.sharp_root, args.blurred_root)
+        eval(args)
     elif args.choice in [1,2,3]:
         inferrence_save_and_eval(args)
     else:
