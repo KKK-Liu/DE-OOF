@@ -77,7 +77,7 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
         
     def get_visuals(self):
         with torch.no_grad():
-            with autocast():
+            with autocast(enabled=self.args.amp):
                 self.forward()
                 
         self.restored_images_1 = self.restored_images_1.clamp(0,1)
@@ -159,7 +159,7 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
         
     def train_step(self):
         self.optimizer.zero_grad()
-        with autocast():
+        with autocast(enabled=self.args.amp):
             self.forward()
             
             self.train_loss_l1_1 = self.loss_function_l1(self.restored_images_1, self.sharp_images_1)
@@ -211,7 +211,7 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
         
     def valid_step(self):
         with torch.no_grad():
-            with autocast():
+            with autocast(enabled=self.args.amp):
                 self.forward()
                 
                 self.valid_loss_l1_1 = self.lambda_level1 * self.loss_function_l1(self.restored_images_1, self.sharp_images_1)

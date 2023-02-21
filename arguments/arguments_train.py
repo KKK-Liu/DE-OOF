@@ -19,6 +19,7 @@ parser.add_argument('--level',type=int, default=3)
 parser.add_argument('--style',type=int, default=2)
 parser.add_argument('--mean_shift', type=bool, default=True)
 parser.add_argument('--range_of_image', type=float, default=2.0)
+parser.add_argument('--amp', type=bool, default=True)
 ''' dataloader  '''
 parser.add_argument('--dataset_name', type=str, default='paired_4')
 parser.add_argument('--data_root', type=str, default='/root/autodl-tmp/data/CRC-02-16-17-08')

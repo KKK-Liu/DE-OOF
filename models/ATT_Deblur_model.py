@@ -67,7 +67,7 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
         
     def get_visuals(self):
         with torch.no_grad():
-            with autocast():
+            with autocast(enabled=self.args.amp):
                 self.forward()
                 
     def save_visuals(self):

@@ -673,7 +673,7 @@ def psf_show():
             
     for name in ['R', 'G', 'B']:
         plt.figure(figsize=(8*4,4*4))
-        for i in range(31):
+        for i in range(32):
             file_name = '{}-{:0>2}.npy'.format(name, i)
             psf = np.load(os.path.join(root, file_name))
             psf = cv2.resize(psf, (21,21))
@@ -916,4 +916,5 @@ if __name__ == '__main__':
     # generate_datalist()
     # r()
     # mse2psnr()
-    clamp_test()
+    # clamp_test()
+    psf_show()

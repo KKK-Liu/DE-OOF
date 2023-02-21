@@ -61,7 +61,7 @@ def get_dataloader(args):
         transforms.ToTensor(),
         transforms.RandomVerticalFlip(),
         transforms.RandomHorizontalFlip(),
-        transforms.ColorJitter(0.3,0.3,0.3,0.2),
+        transforms.ColorJitter(0.2,0.2,0.2,0.1),
         # transforms.Normalize([0.5,0.5,0.5],[1,1,1]),
         # transforms.RandomRotation(180),
     ])

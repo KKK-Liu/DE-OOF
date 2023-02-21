@@ -478,7 +478,7 @@ def make_dataset_with_random_spf_advanced_multi_real():
     
     TRAIN_IMAGE_NUMBER = 1024 * 4
     VALIDATION_IMAGE_NUMBER = 1024
-    
+
     data_root = './data/CRC-224/raw'
     image_names = os.listdir(data_root)
     random.shuffle(image_names)
