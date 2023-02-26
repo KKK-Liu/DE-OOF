@@ -309,8 +309,9 @@ def vis_kernel_height_blurred_bad():
         bottom = 0.05,
         right = 0.90,
         top = 0.95,
+        # hspace=
     )
-    plt.savefig(r"D:\desktop\OOF\tmpfig.png")
+    # plt.savefig(r"D:\desktop\OOF\tmpfig.png")
     plt.show()
     
 if __name__ == '__main__':

@@ -912,9 +912,69 @@ def clamp_test():
     t = t.clamp(2,3)
     print(t)
     
+def nan_test_1():
+    import torch
+    
+    t = torch.ones((5))
+    print(t)
+    t = t/0
+    print(t)
+    tt = torch.ones((5))
+    print(tt)
+    tt = tt + 0.0 * t
+    print(tt)
+    new_tt = torch.ones((5)) + 0.0 * tt
+    print(new_tt)
+    
+def cal_mean_and_var():
+    src_root = ''
+    ...
+    
+def motion_blur():
+    image_root = './data/CRC-224/raw/ADI-TCGA-AAICEQFN.png'
+    # image_BGR = cv2.cvtColor(cv2.imread(image_root), cv2.COLOR_BGR2RGB)
+    # # image_blurred = cv2.
+    # kernel = [
+    #     [1,1,1,1,1]
+    # ]
+    img = cv2.imread(image_root)
+    img_blurred, kernel = motion_blur_copy(img)
+    print(kernel.shape)
+    cv2.imshow('sharp',img)
+    cv2.imshow('blurred',img_blurred)
+    # cv2.imshow('kernel',kernel)
+    plt.imshow(kernel)
+    plt.show()
+    # cv2.waitKey(0)
+    
+def motion_blur_copy(image, degree=24, angle=30):
+    image = np.array(image)
+
+    # 这里生成任意角度的运动模糊kernel的矩阵， degree越大，模糊程度越高
+    M = cv2.getRotationMatrix2D((degree / 2, degree / 2), angle + 45, 1)
+    motion_blur_kernel = np.diag(np.ones(degree))
+    motion_blur_kernel = cv2.warpAffine(motion_blur_kernel, M, (degree, degree))
+
+    motion_blur_kernel = motion_blur_kernel / degree
+    
+    # print(motion_blur_kernel)
+    blurred = cv2.filter2D(image, -1, motion_blur_kernel)
+
+    # convert to uint8
+    cv2.normalize(blurred, blurred, 0, 255, cv2.NORM_MINMAX)
+    blurred = np.array(blurred, dtype=np.uint8)
+    return blurred,motion_blur_kernel
+
+def list_test_1():
+    l1 = [1,2,3]
+    l2 = [4,5,6]
+    print(l1+l2)
 if __name__ == '__main__':
     # generate_datalist()
     # r()
     # mse2psnr()
     # clamp_test()
-    psf_show()
+    # psf_show()
+    # nan_test_1()
+    # motion_blur()
+    list_test_1()

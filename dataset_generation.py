@@ -463,6 +463,7 @@ def blur_one_image_RGB_real_real(ori_img):
             blurred_one_channel = np.array(blurred_one_channel)
             
             result_image[kernel_mapping_smoothed[:,:,i]==j, i] = blurred_one_channel[kernel_mapping_smoothed[:,:,i]==j]
+    
     result_image = np.array(result_image, dtype=np.uint8)
     
     # plt.subplot(132)
@@ -471,24 +472,37 @@ def blur_one_image_RGB_real_real(ori_img):
     # plt.imshow(ori_img)
     # plt.show()
     
+    angles = [0,90,180,270]
+    ps = [0.25,0.25,0.25,0.25]
+    angle = np.random.choice(angles, p=ps)
+    
+    degree = 0
+    for i in range(32):
+        degree = degree + np.random.choice([0,1],p=[0.5,0.5])
+        
+    result_image = motion_blur_copy(result_image, degree, angle)
+    
     return result_image
 
-def make_dataset_with_random_spf_advanced_multi_real():
-    import threading
-    
-    TRAIN_IMAGE_NUMBER = 1024 * 4
-    VALIDATION_IMAGE_NUMBER = 1024
+def motion_blur_copy(image, degree=24, angle=30):
+    image = np.array(image)
 
-    data_root = './data/CRC-224/raw'
-    image_names = os.listdir(data_root)
-    random.shuffle(image_names)
-    
-    image_names_train = image_names[:TRAIN_IMAGE_NUMBER]
-    image_names_val = image_names[TRAIN_IMAGE_NUMBER:TRAIN_IMAGE_NUMBER+VALIDATION_IMAGE_NUMBER]
-    
-    generated_dataset_name = os.path.join('./data/CRC-224', 'CRC-'+time.strftime('%m-%d-%H-%M', time.localtime()))
+    # 这里生成任意角度的运动模糊kernel的矩阵， degree越大，模糊程度越高
+    M = cv2.getRotationMatrix2D((degree / 2, degree / 2), angle + 45, 1)
+    motion_blur_kernel = np.diag(np.ones(degree))
+    motion_blur_kernel = cv2.warpAffine(motion_blur_kernel, M, (degree, degree))
 
-    def blur_dataset_and_load(image_names, name):
+    motion_blur_kernel = motion_blur_kernel / degree
+    
+    # print(motion_blur_kernel)
+    blurred = cv2.filter2D(image, -1, motion_blur_kernel)
+
+    # convert to uint8
+    cv2.normalize(blurred, blurred, 0, 255, cv2.NORM_MINMAX)
+    blurred = np.array(blurred, dtype=np.uint8)
+    return blurred
+
+def blur_dataset_and_load(image_names, name, generated_dataset_name, data_root):
         root_clear = os.path.join(generated_dataset_name, '{}-clear'.format(name))
         root_blurred = os.path.join(generated_dataset_name, '{}-blurred'.format(name))
         
@@ -502,20 +516,29 @@ def make_dataset_with_random_spf_advanced_multi_real():
             cv2.imwrite(os.path.join(root_clear, image_name), img)
             cv2.imwrite(os.path.join(root_blurred, image_name), blured_img)
             
-    ts = []
-    for i in range(4):
-        ts.append(threading.Thread(target=blur_dataset_and_load, args=(image_names_train[1024*i:1024*(i+1)], 'train')))
-        
-    ts.append(threading.Thread(target=blur_dataset_and_load, args=(image_names_val, 'val')))
+def make_dataset_with_random_spf_advanced_multi_real():
+    from multiprocessing import Process
     
-    for t in ts:
-        t.start()
+    TRAIN_IMAGE_NUMBER = 1024 * 4
+    VALIDATION_IMAGE_NUMBER = 1024
 
-    for t in ts:
-        t.join()
-        
-    # blur_dataset_and_load(image_names_train, 'train')
-    # blur_dataset_and_load(image_names_val, 'val')
+    data_root = './data/CRC-224/raw'
+    image_names = os.listdir(data_root)
+    random.shuffle(image_names)
+    
+    image_names_train = image_names[:TRAIN_IMAGE_NUMBER]
+    image_names_val = image_names[TRAIN_IMAGE_NUMBER:TRAIN_IMAGE_NUMBER+VALIDATION_IMAGE_NUMBER]
+    
+    generated_dataset_name = os.path.join('./data/CRC-224', 'CRC-'+time.strftime('%m-%d-%H-%M', time.localtime()))
+
+    
+            
+
+    ts = [Process(target=blur_dataset_and_load, args=(image_names_train[1024*i:1024*(i+1)], 'train', generated_dataset_name, data_root, )) for i in range(4)] +\
+        [Process(target=blur_dataset_and_load, args=(image_names_val, 'val', generated_dataset_name, data_root, ))]
+    
+    [t.start() for t in ts]
+    [t.join() for t in ts]
     
     print('Dataset generation finished. Dataset Name:{}'.format(generated_dataset_name))
     

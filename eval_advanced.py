@@ -25,8 +25,8 @@ parser.add_argument('--data_root',type=str, default='./data/CRC-224/CRC-02-01-22
 parser.add_argument('--batch_size',type=int, default=4)
 parser.add_argument('--num_workers',type=int, default=8)
 
-parser.add_argument('--root_sharp',type=str, default='./data/CRC-224/CRC-02-16-17-08/val-clear')
-parser.add_argument('--root_blurred',type=str, default='./data/CRC-224/CRC-02-16-17-08/val-blurred')
+parser.add_argument('--root_sharp',type=str, default='./data/CRC-224/CRC-02-26-19-56/val-clear')
+parser.add_argument('--root_blurred',type=str, default='./data/CRC-224/CRC-02-26-19-56/val-blurred')
 
 ''' model '''
 parser.add_argument('--model', type=str,default='ATT_Deblur_Net_level1')

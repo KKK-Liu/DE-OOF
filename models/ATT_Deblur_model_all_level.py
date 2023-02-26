@@ -5,6 +5,7 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import MultiStepLR, ConstantLR, CosineAnnealingWarmRestarts, CosineAnnealingLR
 from .base_model_new import BaseModel
 from torch.cuda.amp import autocast as autocast
+from torch.cuda.amp.grad_scaler import GradScaler
 
 from functools import partial
 
@@ -19,7 +20,10 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
         super(ATT_Deblur_Net, self).__init__()
         BaseModel.__init__(self, args)
         self.level = args.level
-        self.net = Net(level = args.level, style=args.style, mean_shift = args.mean_shift, range_of_image = args.range_of_image)
+        if args.net == 'Net':
+            self.net = Net(level = args.level, style=args.style, mean_shift = args.mean_shift, range_of_image = args.range_of_image)
+        else:
+            raise NotImplementedError('{} is not implemented'.format(args.net))
         self.nets.append(self.net)
         
         self.isTrain = self.args.isTrain
@@ -37,6 +41,8 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
                     momentum=args.momentum, 
                     nesterov=True, 
                     weight_decay=args.weight_decay)
+                
+            # self.scaler = GradScaler()
             # optim.NAdam
             if args.scheduler == 'multisteplr':
                 self.scheduler = MultiStepLR(self.optimizer, args.milestones, args.gamma)
@@ -50,6 +56,7 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
             self.loss_function_l1 = nn.L1Loss()
             self.upsample_fn = partial(torch.nn.functional.interpolate, mode='bilinear')
             self.downsample_fn = partial(torch.nn.functional.interpolate, mode='bilinear')
+            
             self.lambda_CM = args.lambda_CM
             self.lambda_RR = args.lambda_RR
             self.lambda_l1 = args.lambda_l1
@@ -64,7 +71,7 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
                                       'mse','mse_1','mse_2','mse_3','mse_4',
                                       'consistency_confidence','consistency']
             self.valid_loss_names += ['l1','l1_1','l1_2','l1_3','l1_4','consistency_confidence','consistency'
-                                      ,'mse','mse_1','mse_2','mse_3','mse_4']
+                                      ,'mse','mse_1','mse_2','mse_3','mse_4','psnr']
             self.meter_init()
         else:
             self.result_save_root = args.result_save_root 
@@ -73,7 +80,7 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
             self.eval_losses = []
             self.image_names = [] 
 
-        print('SRNATTS_Net is created')
+        print('ATT Deblur Model is created')
         
     def get_visuals(self):
         with torch.no_grad():
@@ -192,19 +199,35 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
                 self.lambda_level3 * self.loss_function_l1(self.restored_images_3, self.downsample_fn(self.restored_images_2, (56 ,56 ))) +\
                 self.lambda_level2 * self.loss_function_l1(self.restored_images_2, self.downsample_fn(self.restored_images_1, (112,112)))
             
-            self.train_loss_all =   self.lambda_l1 * self.train_loss_l1 +\
-                                    self.lambda_mse * self.train_loss_mse +\
-                                    self.lambda_RR * self.train_loss_consistency/max(self.level-1, 1) +\
-                                    self.lambda_CM * self.train_loss_consistency_confidence/max(self.level-1, 1)
-                            
-            if torch.isnan(self.train_loss_all).any():
-                raise RuntimeError('NAN!!!')
-            if torch.isinf(self.train_loss_all).any():
-                raise ZeroDivisionError('INF!!!')
-            # self.train_loss_all = self.train_loss_mse_1 + self.train_loss_mse_2 + self.train_loss_mse_3
+            
+            self.train_loss_all = self.lambda_l1 * self.train_loss_l1
+                
+            if not (torch.isnan(self.train_loss_mse).any() or torch.isinf(self.train_loss_mse).any()):
+                self.train_loss_all += self.lambda_mse * self.train_loss_mse
+                
+            if not (torch.isnan(self.train_loss_consistency).any() or torch.isinf(self.train_loss_consistency).any()):
+                self.train_loss_all += self.lambda_RR * self.train_loss_consistency/max(self.level-1, 1)
+                
+            if not (torch.isnan(self.train_loss_consistency_confidence).any() or torch.isinf(self.train_loss_consistency_confidence).any()):
+                self.train_loss_all += self.lambda_CM * self.train_loss_consistency_confidence/max(self.level-1, 1)
+                
+
+        if torch.isnan(self.train_loss_mse).any() or torch.isinf(self.train_loss_mse).any():
+            raise RuntimeError('nan!!!')
         
+        # self.scaler.scale(self.train_loss_all).backward()
         self.train_loss_all.backward()
-        torch.nn.utils.clip_grad_norm_(self.net.convlstm.parameters(),3)
+        # for group in self.optimizer.param_groups:
+        #     for param in group["params"]:
+        #         if param.grad is not None:
+        #             param.grad.data.clamp_(-0.05, 0.05)
+                
+        if self.args.net == 'Net':
+            torch.nn.utils.clip_grad_norm_(self.net.convlstm.parameters(),3)
+        # nn.utils.clip_grad_norm_(self.net.parameters(), max_norm=3, norm_type=2)
+        
+        # self.scaler.step(self.optimizer)
+        # self.scaler.update()
         self.optimizer.step()
 
         self.update_meters(True, self.blur_images_3.size(0))
@@ -214,27 +237,35 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
             with autocast(enabled=self.args.amp):
                 self.forward()
                 
+                self.restored_images_1 = self.restored_images_1.clamp(0,1)
+                self.restored_images_2 = self.restored_images_2.clamp(0,1)
+                self.restored_images_3 = self.restored_images_3.clamp(0,1)
+                self.restored_images_4 = self.restored_images_4.clamp(0,1)
+                
                 self.valid_loss_l1_1 = self.lambda_level1 * self.loss_function_l1(self.restored_images_1, self.sharp_images_1)
                 self.valid_loss_l1_2 = self.lambda_level2 * self.loss_function_l1(self.restored_images_2, self.sharp_images_2)
                 self.valid_loss_l1_3 = self.lambda_level3 * self.loss_function_l1(self.restored_images_3, self.sharp_images_3)
                 self.valid_loss_l1_4 = self.lambda_level4 * self.loss_function_l1(self.restored_images_4, self.sharp_images_4)
                 self.valid_loss_l1 = self.valid_loss_l1_1 + self.valid_loss_l1_2 + self.valid_loss_l1_3 + self.valid_loss_l1_4
 
+                
                 self.valid_loss_mse_1 = self.lambda_level1 * self.loss_function_mse(self.restored_images_1, self.sharp_images_1)
                 self.valid_loss_mse_2 = self.lambda_level2 * self.loss_function_mse(self.restored_images_2, self.sharp_images_2)
                 self.valid_loss_mse_3 = self.lambda_level3 * self.loss_function_mse(self.restored_images_3, self.sharp_images_3)
                 self.valid_loss_mse_4 = self.lambda_level4 * self.loss_function_mse(self.restored_images_4, self.sharp_images_4)
                 self.valid_loss_mse = self.valid_loss_mse_1 + self.valid_loss_mse_2 + self.valid_loss_mse_3 + self.valid_loss_mse_4
                 
+                self.valid_loss_psnr = -10 * torch.log10(self.valid_loss_mse_1 + 1e-8)
+
                 self.valid_loss_consistency_confidence =\
-                    self.lambda_level4 * self.loss_function_l1(self.upsample_fn(self.attention_4, (56 ,56 )), self.attention_3) +\
-                    self.lambda_level3 * self.loss_function_l1(self.upsample_fn(self.attention_3, (112,112)), self.attention_2) +\
-                    self.lambda_level2 * self.loss_function_l1(self.upsample_fn(self.attention_2, (224,224)), self.attention_1)
+                    self.lambda_level4 * self.loss_function_l1(self.attention_4,self.downsample_fn(self.attention_3, (28 ,28 ))) +\
+                    self.lambda_level3 * self.loss_function_l1(self.attention_3,self.downsample_fn(self.attention_2, (56 ,56 ))) +\
+                    self.lambda_level2 * self.loss_function_l1(self.attention_2,self.downsample_fn(self.attention_1, (112,112)))
                     
                 self.valid_loss_consistency = \
-                    self.lambda_level4 * self.loss_function_l1(self.upsample_fn(self.restored_images_4, (56 ,56 )), self.restored_images_3) +\
-                    self.lambda_level3 * self.loss_function_l1(self.upsample_fn(self.restored_images_3, (112,112)), self.restored_images_2) +\
-                    self.lambda_level2 * self.loss_function_l1(self.upsample_fn(self.restored_images_2, (224,224)), self.restored_images_1)
+                    self.lambda_level4 * self.loss_function_l1(self.restored_images_4, self.downsample_fn(self.restored_images_3, (28 ,28 ))) +\
+                    self.lambda_level3 * self.loss_function_l1(self.restored_images_3, self.downsample_fn(self.restored_images_2, (56 ,56 ))) +\
+                    self.lambda_level2 * self.loss_function_l1(self.restored_images_2, self.downsample_fn(self.restored_images_1, (112,112)))
                 
                 self.valid_loss_all = self.valid_loss_mse_1
             

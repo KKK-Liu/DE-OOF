@@ -10,20 +10,21 @@ parser = argparse.ArgumentParser()
 '''the settings below are used for autodl'''
 '''run related'''
 parser.add_argument('--name', type=str,default='adam_testNew', help='name of this run')
-parser.add_argument('--model', type=str, default='ATT_Deblur_model_all_level')
 parser.add_argument('--ckpt_save_path', type=str,default='./checkpoints/')
 parser.add_argument('--dry_run', action='store_true')
 parser.add_argument('--isTrain', default=True)
 ''' model related '''
+parser.add_argument('--model', type=str, default='ATT_Deblur_model_all_level')
 parser.add_argument('--level',type=int, default=3)
 parser.add_argument('--style',type=int, default=2)
+parser.add_argument('--net',type=str, default='Net')
 parser.add_argument('--mean_shift', type=bool, default=True)
-parser.add_argument('--range_of_image', type=float, default=2.0)
-parser.add_argument('--amp', type=bool, default=True)
+parser.add_argument('--range_of_image', type=float, default=1.0)
+parser.add_argument('--amp', type=bool, default=False)
 ''' dataloader  '''
 parser.add_argument('--dataset_name', type=str, default='paired_4')
 parser.add_argument('--data_root', type=str, default='/root/autodl-tmp/data/CRC-02-16-17-08')
-parser.add_argument('--batch_size', type=int, default=4)
+parser.add_argument('--batch_size', type=int, default=8)
 parser.add_argument('--num_workers', type=int, default=15)
 parser.add_argument('--pin_memory', type=bool, default=True)
 
@@ -36,7 +37,7 @@ parser.add_argument('--logfilemode', type=str,default='w', help='mode of the log
 '''optimizer and scheduler related'''
 parser.add_argument('--optimizer', type=str, default='adam')
 parser.add_argument('--epoch', type=int, default=200)
-parser.add_argument('--lr', type=float, default=1e-4)
+parser.add_argument('--lr', type=float, default=9e-5)
 parser.add_argument('--momentum', type=float, default=0.9)
 parser.add_argument('--weight_decay', type=float, default=1e-5)
 
@@ -73,7 +74,7 @@ def get_arguements():
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
     assert torch.cuda.is_available(), "how could you do not use cuda???"
     
-    args.name = args.name + time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())
+    args.name = args.name +'-'+ time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())
     args.ckpt_save_path = os.path.join(args.ckpt_save_path, args.name)
     os.makedirs(args.ckpt_save_path, exist_ok=True)
     
