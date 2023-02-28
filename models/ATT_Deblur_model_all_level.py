@@ -32,7 +32,8 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
                 self.optimizer = torch.optim.Adam( 
                     self.net.parameters(),
                     lr = args.lr,
-                    weight_decay = args.weight_decay
+                    weight_decay = args.weight_decay,
+                    amsgrad=True
                 )
             elif args.optimizer == 'sgd':
                 self.optimizer =optim.SGD(
@@ -76,7 +77,7 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
         else:
             self.result_save_root = args.result_save_root 
             os.makedirs(os.path.join(self.result_save_root, 'image'), exist_ok=True)
-            self.visual_names = ['restored_images_1']
+            self.visual_names = ['restored_images_1','attention_1']
             self.eval_losses = []
             self.image_names = [] 
 
@@ -91,6 +92,11 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
         self.restored_images_2 = self.restored_images_2.clamp(0,1)
         self.restored_images_3 = self.restored_images_3.clamp(0,1)
         self.restored_images_4 = self.restored_images_4.clamp(0,1)
+        
+        self.attention_1 = torch.abs(self.attention_1)
+        self.attention_2 = torch.abs(self.attention_2)
+        self.attention_3 = torch.abs(self.attention_3)
+        self.attention_4 = torch.abs(self.attention_4)
                 
     def save_visuals(self):
         for visual_name in self.visual_names:
@@ -289,6 +295,10 @@ class ATT_Deblur_Net(nn.Module, BaseModel):
                 for img_tensor, name in zip(self.restored_images_1, self.paths):
                     img_rgb = f.to_pil_image(img_tensor)
                     img_rgb.save(os.path.join(self.result_save_root, name))
+        
+    def resume(self):
+        self.load_network()
+        
         
 if __name__ == '__main__':
     ...

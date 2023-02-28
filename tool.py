@@ -969,12 +969,194 @@ def list_test_1():
     l1 = [1,2,3]
     l2 = [4,5,6]
     print(l1+l2)
+    
+def wsi_blur_and_cut():
+    # img = np.array(ori_img)
+    import openslide
+    
+    slide_root = r"D:/desktop/II1952204 - 2020-10-14 20.55.46.ndpi"
+    STEP = 224
+    with openslide.OpenSlide(slide_root) as slide:
+        print('slide.dimension:', slide.dimensions)
+        print('slide.level_count:', slide.level_count)
+        print('slide.level_downsamples:', slide.level_downsamples)
+        
+        slide_w, slide_h = slide.dimensions
+        
+        # slide_level0 = slide.read_region((0,0),0,(slide_w, slide_h))
+        # print(slide_level0.size)
+        tmp_level = 8
+        downsampled_slide = slide.read_region((0,0),tmp_level,(int(slide_w/slide.level_downsamples[tmp_level]), int(slide_h/slide.level_downsamples[tmp_level])))
+        
+        # downsampled_slide.show('level 4')
+        slide_array = np.array(downsampled_slide)
+        
+        print(slide_array.shape)
+        print(slide_array)
+        
+        slide_array_without_4thchannel = slide_array[:,:,:3]
+        print(slide_array_without_4thchannel.shape)
+        print(slide_array_without_4thchannel)
+        
+        plt.imshow(slide_array_without_4thchannel)
+        plt.show()
+        # for x,y in product(range(0, slide_w, STEP), range(0, slide_h, STEP)):
+            
+        
+        
+    exit()
+    H = 224
+    W = 224
+        
+    # mg = np.array(ori_img)
+
+        
+    kernel_mapping = np.random.randint(low = 0, high = 256, size=(H,W))
+    kernel_mapping = np.array(kernel_mapping, dtype=np.uint8)
+    
+    kernel_mapping_smoothed = kernel_mapping.copy()
+    kernel_mapping_smoothed = cv2.GaussianBlur(kernel_mapping, sigmaX=10, ksize=(0,0))
+    kernel_mapping_smoothed = cv2.GaussianBlur(kernel_mapping_smoothed, sigmaX=8, ksize=(0,0))
+    
+    kernel_mapping_smoothed = np.array(kernel_mapping_smoothed, dtype=np.int8)
+    
+    kernel_mapping_smoothed = kernel_mapping_smoothed - np.min(kernel_mapping_smoothed)
+    
+    tmp_m = 30 - np.max(kernel_mapping_smoothed)
+    
+    for i in range(tmp_m):
+        kernel_mapping_smoothed = kernel_mapping_smoothed + np.random.choice([0,1],p=[0.2,0.8])
+    kernel_mapping_smoothed = np.abs(kernel_mapping_smoothed, dtype=np.float32)
+    kernel_mapping_smoothed = cv2.resize(cv2.Mat(kernel_mapping_smoothed),dsize=(4096,4096))
+    # plt.subplot(131)
+    
+    # kernel_mapping_smoothed = np.dstack([kernel_mapping_smoothed, kernel_mapping_smoothed, kernel_mapping_smoothed])
+    
+    # result_image = np.zeros(img.shape, dtype=np.uint8)
+    
+    # for i, name in zip(range(3), ['B', 'G', 'R']):
+    #     z_min = np.min(kernel_mapping_smoothed[:,:,i])
+    #     z_max = np.max(kernel_mapping_smoothed[:,:,i])
+        
+    #     for j in range(z_min, z_max + 1):
+
+    #         # print("j:{}".format(j))
+    #         kernel = np.load('./plots_npy/color-real-3um/{}-{:0>2}.npy'.format(name, j))
+            
+    #         kernel = kernel/np.sum(kernel)
+    #         kernel = cv2.Mat(kernel*255)
+    #         kernel = cv2.resize(kernel,(21,21))
+    #         kernel = kernel/np.sum(kernel)
+            
+    #         blurred_one_channel = cv2.filter2D(img[:,:,i],ddepth=-1, kernel=kernel)
+    #         blurred_one_channel = np.array(blurred_one_channel)
+            
+    #         result_image[kernel_mapping_smoothed[:,:,i]==j, i] = blurred_one_channel[kernel_mapping_smoothed[:,:,i]==j]
+    
+    # result_image = np.array(result_image, dtype=np.uint8)
+    
+    
+'''
+    做一下这两个功能:
+        1. blur and deblur 可视化 原图,blur,恢复后, 然后标上um, 然后加上局部放大
+        2. WSI level的deblur and Attention map
+'''
+
+def blur_and_deblur_visualization():
+    '''
+        先只做一张图片的情况
+    '''
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    from matplotlib.patches import ConnectionPatch
+    
+    image_roots = {
+        'raw':r"D:\desktop\de-OOF\data\CRC-224\CRC-02-26-19-56\val-clear\ADI-TCGA-AAWDNKDK.png",
+        'blurred':r"D:\desktop\de-OOF\data\CRC-224\CRC-02-26-19-56\val-blurred\ADI-TCGA-AAWDNKDK.png",
+        'restored':r"D:\desktop\de-OOF\data\CRC-224\CRC-02-26-19-56\val-clear\ADI-TCGA-AAWDNKDK.png",
+    }
+
+    image = {}
+    
+    for key in image_roots.keys():
+        image[key] = np.array(Image.open(image_roots[key]))
+    
+    pos_x, pos_y = 0, 0
+    heigth, width = 32, 32
+    
+    
+    sub_image = {}
+    
+    for key in image.keys():
+        sub_image[key] = image[key][pos_x:pos_x+heigth,pos_y:pos_y+width]
+        
+    # for i, key in enumerate(image_roots.keys()):
+    #     plt.subplot(2,3,i+1)
+    #     plt.imshow(image[key])
+    #     plt.axis('off')
+    #     plt.subplot(2,3,i+1+3)
+    #     plt.imshow(sub_image[key])
+    #     plt.axis('off')
+        
+        
+    # plt.show()
+    # plt.figure(figsize=(9,6))
+    fig, ax = plt.subplots(2,3)
+    fig.set_figheight(6)
+    fig.set_figwidth(9)
+    for i, key in enumerate(image_roots.keys()):
+        ax[0][i].imshow(image[key])
+        ax[0][i].axis('off')
+        ax[1][i].axis('off')
+        
+        small_ax = inset_axes(ax[0][i], width="40%", height="40%", loc=3,
+                   bbox_to_anchor=(0.5, 0.5, 0.8, 0.8),
+                   bbox_transform=ax[0][i].transAxes)
+        
+        small_ax.imshow(sub_image[key])
+        small_ax.axis('off')
+        
+        
+        # box of small ax
+        small_ax.plot(
+            [0,32,32,0,0],
+            [0,0,32,32,0],
+            'blue'
+        )
+        
+        # box of big ax
+        ax[0][i].plot(
+            [0,32,32,0,0],
+            [0,0,32,32,0],
+            'red'
+        )
+        
+        con = ConnectionPatch(xyA=(0,32),xyB=(0,32),coordsA="data",coordsB="data",
+        axesA=small_ax,axesB=ax[0][i])
+
+        small_ax.add_artist(con)
+        
+        con = ConnectionPatch(xyA=(32,0),xyB=(32,0),coordsA="data",coordsB="data",
+        axesA=small_ax,axesB=ax[0][i])
+
+        small_ax.add_artist(con)
+        
+        # ax[0][i].indicate_inset_zoom(small_ax)
+        
+    plt.show()
+        
+        
+        
+    
+    
+    
 if __name__ == '__main__':
     # generate_datalist()
+    # wsi_blur_and_cut()
+    blur_and_deblur_visualization()
     # r()
     # mse2psnr()
     # clamp_test()
     # psf_show()
     # nan_test_1()
     # motion_blur()
-    list_test_1()
+    # list_test_1()

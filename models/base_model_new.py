@@ -117,7 +117,7 @@ class BaseModel(ABC):
             
     def epoch_finish(self, epoch):
         save_flag = False
-        if epoch == 1 or\
+        if epoch == self.args.start_epoch or\
             self.best_valid_loss > self.meters['valid_loss_all'].avg:
             # print("before: bcl:{}, meter:{}".format(self.best_valid_loss , self.meters['valid_loss_all'].avg))
             self.best_valid_loss = self.meters['valid_loss_all'].avg

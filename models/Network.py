@@ -388,7 +388,7 @@ class Net(nn.Module):
 
             c = self.upsample_fn(c, scale_factor=2)
             h = self.upsample_fn(h, scale_factor=2)
-            i1, a1 = self.forward_step(
+            i1, a1,h,c = self.forward_step(
                 torch.cat([b1, self.upsample_fn(i2, scale_factor=2)], 1), (h, c))
         
         i1 = i1 / self.range_of_image

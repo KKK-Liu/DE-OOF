@@ -16,6 +16,8 @@ def main():
     args = get_arguements()
     train_dataloader, val_dataloader= get_dataloader(args)    
     model = get_model(args)
+    if args.resume:
+        model.resume()
     model.to_cuda()
 
     if args.use_tensorboard:
@@ -42,7 +44,7 @@ def main():
         Fitting!
     '''
     s = time.time()
-    for epoch in range(1, args.epoch+1):
+    for epoch in range(args.start_epoch, args.end_epoch+1):
         model.epoch_start()
         '''
             Train!
@@ -78,7 +80,7 @@ def main():
         n = time.time()
         msg = 'Epoch:{:0>3d} {} train time:{:.0f}, val time:{:.0f} Finish at {}'.format(
             epoch, model.get_log_message(),train_e-train_s,val_e-val_s, time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(
-                (n-s)/epoch * (args.epoch-epoch) +n 
+                (n-s)/epoch * (args.end_epoch-epoch-args.start_epoch) +n 
             )))
         print(msg)
         # progress_bar.set_postfix_str(msg)
@@ -90,7 +92,7 @@ def main():
              
         if args.use_wandb:
             scalar_dict = model.get_scalar_dict()
-            wandb.log(scalar_dict)
+            wandb.log(scalar_dict, step=epoch)
 
 
 
